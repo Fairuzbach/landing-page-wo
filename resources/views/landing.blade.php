@@ -30,6 +30,46 @@
             }
         }
 
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -50px) scale(1.1);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+        }
+
+        .animate-blob {
+            animation: float 10s infinite ease-in-out;
+        }
+
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+
+        .animation-delay-4000 {
+            animation-delay: 4s;
+        }
+
+        /* 2. Animasi Teks Berkilau (Shimmer) */
+        @keyframes shine {
+            to {
+                background-position: 200% center;
+            }
+        }
+
+        .animate-text-shimmer {
+            background-size: 200% auto;
+            animation: shine 3s linear infinite;
+        }
+
         .animate-fade-in-up {
             animation: fadeInUp 0.8s ease-out forwards;
         }
@@ -60,13 +100,13 @@
 
         {{-- 3. Background Decoration (Blobs Cahaya) --}}
         <div
-            class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400/20 rounded-full blur-[100px] pointer-events-none">
+            class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400/20 rounded-full blur-[100px] pointer-events-none animate-blob">
         </div>
         <div
-            class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-400/20 rounded-full blur-[100px] pointer-events-none">
+            class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-400/20 rounded-full blur-[100px] pointer-events-none animate-blob animation-delay-2000">
         </div>
         <div
-            class="absolute top-[20%] right-[10%] w-72 h-72 bg-emerald-400/20 rounded-full blur-[80px] pointer-events-none">
+            class="absolute top-[20%] right-[10%] w-72 h-72 bg-emerald-400/20 rounded-full blur-[80px] pointer-events-none animate-blob animation-delay-4000">
         </div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
@@ -76,7 +116,7 @@
                 {{-- Judul Besar --}}
                 <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
                     JEMBO Work <span
-                        class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Management</span>
+                        class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-600 animate-text-shimmer">Management</span>
                 </h1>
             </div>
 
@@ -134,59 +174,86 @@
                 @endphp
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 items-stretch">
-                    {{-- 2. Pastikan di sini memanggil $divisions --}}
                     @foreach ($divisions as $item)
-                        <a href="{{ $item['btn_link'] }}" class="group block h-full"> {{-- h-full penting agar link memenuhi grid --}}
-                            <div
-                                class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col justify-between">
+                        {{-- Wrapper Alpine.js untuk Efek Tilt 3D --}}
+                        <div x-data="{
+                            transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)',
+                            handleMove(e) {
+                                const el = this.$refs.card;
+                                const { left, top, width, height } = el.getBoundingClientRect();
+                                const x = e.clientX - left;
+                                const y = e.clientY - top;
+                        
+                                // Hitung rotasi (maksimal 10 derajat)
+                                const xPct = x / width - 0.5;
+                                const yPct = y / height - 0.5;
+                                const rotateY = xPct * 20;
+                                const rotateX = yPct * -20;
+                        
+                                this.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.05)`;
+                            },
+                            handleLeave() {
+                                this.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)';
+                            }
+                        }" class="h-full">
+                            <a href="{{ $item['btn_link'] }}" class="group block h-full">
+                                <div x-ref="card" @mousemove="handleMove($event)" @mouseleave="handleLeave()"
+                                    :style="`transform: ${transform}; transition: transform 0.1s ease-out;`"
+                                    class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 p-5 h-full flex flex-col justify-between relative overflow-hidden z-10 hover:shadow-2xl hover:border-gray-300">
 
-                                {{-- Bagian Atas: Icon & Title --}}
-                                <div class="flex flex-col items-start gap-4">
-                                    {{-- Icon Wrapper --}}
+                                    {{-- Efek Kilau Putih (Glare) saat hover --}}
                                     <div
-                                        class="w-12 h-12 rounded-lg bg-gradient-to-br {{ $item['color'] }} {{ $item['shadow'] }} text-white flex items-center justify-center flex-shrink-0 shadow-md">
-                                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            {!! $item['icon'] !!}
+                                        class="absolute inset-0 bg-gradient-to-tr from-white/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                                    </div>
+
+                                    {{-- Bagian Atas: Icon & Title --}}
+                                    <div class="flex flex-col items-start gap-4 relative z-20">
+                                        {{-- Icon Wrapper --}}
+                                        <div
+                                            class="w-12 h-12 rounded-lg bg-gradient-to-br {{ $item['color'] }} {{ $item['shadow'] }} text-white flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform duration-300">
+                                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24"
+                                                stroke="currentColor">
+                                                {!! $item['icon'] !!}
+                                            </svg>
+                                        </div>
+
+                                        {{-- Text Wrapper --}}
+                                        <div class="w-full">
+                                            <h3
+                                                class="font-bold text-gray-800 text-base leading-tight mb-2 {{ $item['bg_hover'] }} transition-colors min-h-[3rem] flex items-center">
+                                                {{ $item['name'] }}
+                                            </h3>
+                                            <p class="text-xs text-gray-500 leading-relaxed">
+                                                {{ $item['desc'] }}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {{-- Arrow icon --}}
+                                    <div
+                                        class="mt-4 flex justify-end opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-[-20px] group-hover:translate-x-0 relative z-20">
+                                        <svg class="w-5 h-5 text-gray-400 group-hover:text-{{ explode('-', $item['color'])[1] }}-500"
+                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
                                         </svg>
                                     </div>
-
-                                    {{-- Text Wrapper --}}
-                                    <div class="w-full">
-                                        <h3
-                                            class="font-bold text-gray-800 text-base leading-tight mb-2 {{ $item['bg_hover'] }} transition-colors min-h-[3rem] flex items-center">
-                                            {{-- min-h-[3rem] menjaga judul 2 baris tetap rapi meskipun judul lain cuma 1 baris --}}
-                                            {{ $item['name'] }}
-                                        </h3>
-                                        <p class="text-xs text-gray-500 leading-relaxed">
-                                            {{ $item['desc'] }}
-                                        </p>
-                                    </div>
                                 </div>
-
-                                {{-- Optional: Arrow icon di bawah kanan untuk mempercantik (tanda klik) --}}
-                                <div
-                                    class="mt-4 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-[-10px] group-hover:translate-x-0">
-                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-                                    </svg>
-                                </div>
-
-                            </div>
-                        </a>
+                            </a>
+                        </div>
                     @endforeach
                 </div>
             </div>
-
-
-
-            {{-- 6. Footer Note --}}
-            <div class="text-center mt-20 text-slate-400 text-sm animate-fade-in-up opacity-0-start delay-300">
-                <p>&copy; {{ date('Y') }} Fairuz Bachri. All rights reserved. </p>
-            </div>
-
         </div>
+
+
+
+        {{-- 6. Footer Note --}}
+        <div class="text-center mt-20 text-slate-400 text-sm animate-fade-in-up opacity-0-start delay-300">
+            <p>&copy; {{ date('Y') }} Fairuz Bachri. All rights reserved. </p>
+        </div>
+
+    </div>
     </div>
 </body>
 
