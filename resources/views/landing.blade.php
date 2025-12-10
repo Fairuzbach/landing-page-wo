@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Work Order Management</title>
+    <title>JEMBO Work Management</title>
 
     {{-- 1. Load Font Google (Inter) agar terlihat modern --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,7 +75,7 @@
             <div class="text-center max-w-3xl mx-auto mb-16 animate-fade-in-up opacity-0-start">
                 {{-- Judul Besar --}}
                 <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
-                    Work Order <span
+                    JEMBO Work <span
                         class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Management</span>
                 </h1>
             </div>
@@ -88,8 +88,8 @@
                     $divisions = [
                         [
                             'id' => 'maintenance',
-                            'name' => 'Maintenance',
-                            'desc' => 'Description',
+                            'name' => 'Work Order Maintenance',
+                            'desc' => 'Servis • Mesin • Pemeliharaan',
                             'icon' =>
                                 '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />',
                             'color' => 'from-blue-500 to-cyan-400',
@@ -99,8 +99,8 @@
                         ],
                         [
                             'id' => 'engineering',
-                            'name' => 'Engineering',
-                            'desc' => 'Description',
+                            'name' => 'Engineering Improvement Order',
+                            'desc' => 'Upgrade • Efisiensi • Optimasi',
                             'icon' =>
                                 '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />',
                             'color' => 'from-orange-500 to-red-400',
@@ -110,18 +110,18 @@
                         ],
                         [
                             'id' => 'generalAffair',
-                            'name' => 'General Affair',
-                            'desc' => 'Description',
+                            'name' => 'Work Order General Affair',
+                            'desc' => 'Layanan • Fasilitas • Operasional',
                             'icon' =>
                                 '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />',
                             'color' => 'from-purple-500 to-pink-400',
                             'shadow' => 'shadow-purple-500/20',
                             'bg_hover' => 'group-hover:text-purple-600',
-                            'btn_link' => '#',
+                            'btn_link' => route('ga.index'),
                         ],
                         [
                             'id' => 'facility',
-                            'name' => 'Facility',
+                            'name' => 'Work Order Facility',
                             'desc' => 'Description',
                             'icon' =>
                                 '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />',
@@ -133,29 +133,46 @@
                     ];
                 @endphp
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 items-stretch">
                     {{-- 2. Pastikan di sini memanggil $divisions --}}
                     @foreach ($divisions as $item)
-                        <a href="{{ $item['btn_link'] }}" class="group block">
+                        <a href="{{ $item['btn_link'] }}" class="group block h-full"> {{-- h-full penting agar link memenuhi grid --}}
                             <div
-                                class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 h-full">
-                                <div class="flex items-center gap-4">
+                                class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col justify-between">
+
+                                {{-- Bagian Atas: Icon & Title --}}
+                                <div class="flex flex-col items-start gap-4">
+                                    {{-- Icon Wrapper --}}
                                     <div
-                                        class="w-14 h-14 rounded-lg bg-gradient-to-br {{ $item['color'] }} {{ $item['shadow'] }} text-white flex items-center justify-center flex-shrink-0">
-                                        <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        class="w-12 h-12 rounded-lg bg-gradient-to-br {{ $item['color'] }} {{ $item['shadow'] }} text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             {!! $item['icon'] !!}
                                         </svg>
                                     </div>
-                                    <div>
+
+                                    {{-- Text Wrapper --}}
+                                    <div class="w-full">
                                         <h3
-                                            class="font-bold text-gray-800 text-lg {{ $item['bg_hover'] }} transition-colors">
+                                            class="font-bold text-gray-800 text-base leading-tight mb-2 {{ $item['bg_hover'] }} transition-colors min-h-[3rem] flex items-center">
+                                            {{-- min-h-[3rem] menjaga judul 2 baris tetap rapi meskipun judul lain cuma 1 baris --}}
                                             {{ $item['name'] }}
                                         </h3>
-                                        <p class="text-xs text-gray-500 mt-1 leading-snug">
+                                        <p class="text-xs text-gray-500 leading-relaxed">
                                             {{ $item['desc'] }}
                                         </p>
                                     </div>
                                 </div>
+
+                                {{-- Optional: Arrow icon di bawah kanan untuk mempercantik (tanda klik) --}}
+                                <div
+                                    class="mt-4 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-[-10px] group-hover:translate-x-0">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                                    </svg>
+                                </div>
+
                             </div>
                         </a>
                     @endforeach
@@ -166,8 +183,7 @@
 
             {{-- 6. Footer Note --}}
             <div class="text-center mt-20 text-slate-400 text-sm animate-fade-in-up opacity-0-start delay-300">
-                <p>&copy; {{ date('Y') }} Company Internal System. Butuh bantuan? <a href="#"
-                        class="text-blue-500 hover:underline">Hubungi Admin</a></p>
+                <p>&copy; {{ date('Y') }} Fairuz Bachri. All rights reserved. </p>
             </div>
 
         </div>

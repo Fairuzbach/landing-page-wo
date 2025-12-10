@@ -24,7 +24,7 @@ class WorkOrderEngineering extends Model
         'machine_name',
         'damaged_part',
 
-        'improvement_parameter', // Kolom Baru
+        'improvement_parameters', // Kolom Baru
         'improvement_status',    // Kolom Baru (PENTING untuk status)
 
         'kerusakan',
