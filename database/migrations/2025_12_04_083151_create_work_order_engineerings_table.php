@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('machine_name');
             $table->string('damaged_part');             // Bagian request
             $table->string('improvement_status');       // PENGGANTI production_status
+            $table->string('improvement_parameters');       // PENGGANTI production_status
             $table->string('kerusakan');                // Biasanya copy dari damaged_part
             $table->text('kerusakan_detail');
             $table->string('priority')->default('medium');

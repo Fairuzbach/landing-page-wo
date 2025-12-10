@@ -10,7 +10,7 @@
 
                 </div>
                 <span class="self-center text-xl font-bold whitespace-nowrap text-slate-800">
-                    Work<span class="text-indigo-600">Order</span>
+                    JEMBO<span class="text-indigo-600">Cable</span>
                 </span>
             </a>
 
