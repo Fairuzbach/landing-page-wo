@@ -17,7 +17,10 @@ class GeneralAffairController extends Controller
     private function buildQuery(Request $request)
     {
         $query = WorkOrderGeneralAffair::query();
-
+        $user = Auth::user();
+        if ($user->role !== 'ga.admin') {
+            $query->where('requester_id', $user->id);
+        }
         // 1. SEARCH LOGIC
         if ($request->filled('search')) {
             $search = $request->search;
@@ -51,10 +54,24 @@ class GeneralAffairController extends Controller
     {
         // dd($request->all());
         $query = $this->buildQuery($request);
-        $workOrders = $query->paginate(10)->withQueryString();
+        $workOrders = $query->paginate(5)->withQueryString();
         $pageIds = $workOrders->pluck('id')->toArray();
         $plants = Plant::all();
-        return view('Division.GeneralAffair.GeneralAffair', compact('workOrders', 'plants', 'pageIds'));
+
+        $user = Auth::user();
+        $statsQuery = WorkOrderGeneralAffair::query();
+
+        if ($user->role !== 'ga.admin') {
+            $statsQuery->where('requester_id', $user->id);
+        }
+
+        $countTotal = (clone $statsQuery)->count();
+        $countPending = (clone $statsQuery)->where('status', 'pending')->count();
+        $countInProgress = (clone $statsQuery)->where('status', 'in_progress')->count();
+        $countCompleted = (clone $statsQuery)->where('status', 'completed')->count();
+
+
+        return view('Division.GeneralAffair.GeneralAffair', compact('workOrders', 'plants', 'pageIds', 'countTotal', 'countPending', 'countInProgress', 'countCompleted'));
     }
 
     //halaman form
@@ -154,23 +171,20 @@ class GeneralAffairController extends Controller
 
     public function export(Request $request)
     {
-        // --- 1. LOGIKA QUERY (Fixed) ---
+        // 1. LOGIKA QUERY
         if ($request->filled('selected_ids') && $request->selected_ids != '') {
-            // A. Jika Export Selected (Checkbox)
-            $ids = explode(',', $request->selected_ids);
+            // Ambil input, jika ada duplikat ambil yang terakhir atau unik
+            $idsRaw = is_array($request->selected_ids) ? end($request->selected_ids) : $request->selected_ids;
+            $ids = explode(',', $idsRaw);
 
             $query = WorkOrderGeneralAffair::with('user')
                 ->whereIn('id', $ids)
                 ->latest();
         } else {
-            // B. Jika Export Filtered (Search/Date/Status)
+            // Gunakan logika filter yang sama dengan index
             $query = $this->buildQuery($request);
-
-            // Load relasi user untuk performa
-            $query->with('user');
+            $query->with('user'); // Pastikan relation user di-load
         }
-
-        // (HAPUS baris '$query = ...' yang ada disini sebelumnya karena menimpa logika di atas)
 
         $filename = 'request-orders-' . date('Y-m-d-H-i') . '.csv';
 
@@ -185,10 +199,21 @@ class GeneralAffairController extends Controller
         return response()->stream(function () use ($query) {
             $file = fopen('php://output', 'w');
 
+            // --- PERBAIKAN UTAMA DISINI ---
+            // Bersihkan output buffer agar file tidak corrupt
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            // Tambahkan BOM agar Excel bisa baca karakter khusus (UTF-8)
+            fputs($file, "\xEF\xBB\xBF");
+            // ------------------------------
+
             // Header Kolom CSV
             fputcsv($file, [
                 'ID Tiket',
                 'Pemohon',
+                'Divisi Pemohon',
                 'Departemen',
                 'Plant',
                 'Parameter Permintaan',
@@ -199,22 +224,19 @@ class GeneralAffairController extends Controller
                 'Tanggal Dibuat'
             ]);
 
+            // Gunakan chunk agar memory tidak habis jika data ribuan
             $query->chunk(100, function ($tickets) use ($file) {
                 foreach ($tickets as $ticket) {
 
-                    // LOGIKA NAMA PEMOHON:
-                    // 1. Coba ambil dari relasi User (Live data)
-                    // 2. Jika user dihapus/null, ambil dari kolom 'requester_name' (History data)
-                    // 3. Jika keduanya null, tampilkan strip
-                    $namaPemohon = $ticket->user->name ?? $ticket->requester_name ?? '-';
+                    // Handle jika user terhapus
+                    $user = $ticket->user;
+                    $namaPemohon = $user ? $user->name : ($ticket->requester_name ?? '-');
+                    $divisiPemohon = $user ? ($user->divisi ?? '-') : '-'; // Pastikan kolom 'divisi' ada di tabel users
 
                     fputcsv($file, [
-                        // ID Tiket Custom (woGA-...)
                         $ticket->ticket_num,
-
-                        // Nama Pemohon
                         $namaPemohon,
-
+                        $divisiPemohon,
                         $ticket->department,
                         $ticket->plant,
                         $ticket->parameter_permintaan ?? $ticket->category,

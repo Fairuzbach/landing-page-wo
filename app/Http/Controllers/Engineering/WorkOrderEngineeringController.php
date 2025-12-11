@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Engineering;
 
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Engineering\WorkOrderEngineering;
 use App\Models\Engineering\Plant;
 use App\Models\Engineering\EngineerTech;
@@ -10,13 +12,26 @@ use App\Models\Engineering\ParameterImprovement;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 
 class WorkOrderEngineeringController extends Controller
 {
 
     public function index(Request $request)
     {
+        // $queryUser = WorkOrderEngineering::query();
         $query = WorkOrderEngineering::latest();
+        $user = Auth::user();
+        $statsQuery = WorkOrderEngineering::query();
+
+        if ($user->role !== 'eng.admin') {
+            $query->where('requester_id', $user->id);
+            $statsQuery->where('requester_id', $user->id);
+        }
+        $countTotal = (clone $statsQuery)->count();
+        $countPending = (clone $statsQuery)->where('improvement_status', 'OPEN')->count();
+        $countInProgress = (clone $statsQuery)->where('improvement_status', 'WIP')->count();
+        $countCompleted = (clone $statsQuery)->where('improvement_status', 'CLOSED')->count();
 
         // 1. SEARCH
         if ($request->filled('search')) {
@@ -44,7 +59,7 @@ class WorkOrderEngineeringController extends Controller
         // Data Pendukung
         $plants = Plant::with('machines')->get();
         $technicians = EngineerTech::all();
-        $improvementStatuses = ImprovementStatus::all();
+        // $improvementStatuses = ImprovementStatus::all();
         $improvementParameters = ParameterImprovement::all();
 
         return view('Division.Engineering.Engineering', compact(
@@ -52,7 +67,10 @@ class WorkOrderEngineeringController extends Controller
             'plants',
             'technicians',
             'improvementParameters',
-            'improvementStatuses'
+            'countTotal',
+            'countPending',
+            'countInProgress',
+            'countCompleted'
         ));
     }
 
@@ -62,12 +80,17 @@ class WorkOrderEngineeringController extends Controller
             'report_date' => 'required|date',
             'report_time' => 'required',
             'plant' => 'required|string',
+            'engineer_tech' => 'required|array|min:1|max:5',
+            'plant' => 'required|string',
             'machine_name' => 'required|string',
             'damaged_part' => 'required|string',
             'improvement_parameters' => 'required|string',
             'kerusakan_detail' => 'required|string',
             'priority' => 'nullable',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'photo' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:5120',
+            'initial_status' => 'required|in:OPEN,WIP,CLOSED',
+        ], [
+            'engineer_tech.required' => 'Wajib memilih minimal 1 engineer (Nama sendiri)'
         ]);
 
         $photoPath = null;
@@ -75,23 +98,31 @@ class WorkOrderEngineeringController extends Controller
             $photoPath = $request->file('photo')->store('work_orders', 'public');
         }
 
+        $engineerString = implode(',', $request->engineer_tech);
+
         $dateCode = date('Ymd');
         $prefix = 'engIO-' . $dateCode . '-';
         $lastWorkOrder = WorkOrderEngineering::where('ticket_num', 'like', $prefix . '%')->orderBy('id', 'desc')->first();
 
         if ($lastWorkOrder) {
-            $lastNumber = (int) substr($lastWorkOrder->ticket_num, -2);
+            $lastNumber = (int) substr($lastWorkOrder->ticket_num, -3);
             $newSequence = $lastNumber + 1;
         } else {
             $newSequence = 0;
         }
         $ticketNum = $prefix . sprintf('%03d', $newSequence);
 
+        $finishedDate = null;
+        if ($request->initial_status == 'CLOSED') {
+            $finishedDate = Carbon::now();
+        }
+
         WorkOrderEngineering::create([
             'requester_id' => auth()->id(),
             'ticket_num' => $ticketNum,
             'report_date' => $request->report_date,
             'report_time' => $request->report_time,
+            'engineer_tech' => $engineerString,
             'plant' => $request->plant,
             'machine_name' => $request->machine_name,
             'damaged_part' => $request->damaged_part,
@@ -101,19 +132,73 @@ class WorkOrderEngineeringController extends Controller
             'priority' => $request->priority ?? 'medium',
 
             // Set Default Status
-            'improvement_status' => 'pending',
+            'improvement_status' => $request->initial_status,
+            'finished_date' => $finishedDate,
 
             'photo_path' => $photoPath,
         ]);
 
-        return redirect()->route('engineering.wo.index')->with('success', 'Laporan berhasil dibuat!');
+        return redirect()->route('engineering.wo.index')->with('success', 'Laporan berhasil dibuat dengan status !' . $request->initial_status);
+    }
+    public function updateStatus(Request $request, $id)
+    {
+        $ticket = WorkOrderEngineering::findOrFail($id);
+        $user = Auth::user();
+
+        //ROLE USER LOGIC
+        if ($ticket->requester_id == $user->id && $user->role !== 'eng.admin') {
+            $request->validate([
+                'status' => 'required|in:WIP,CLOSED'
+            ]);
+            $ticket->improvement_status = $request->status;
+
+            if ($request->status == 'CLOSED') {
+                $ticket->finished_date = Carbon::now();
+            } else {
+                $ticket->finished_date = null;
+            }
+            $ticket->save();
+            return redirect()->back()->with('success', 'Status laporan berhasil diupdate !' . $request->status);
+        }
+
+        //ROLE ENG.ADMIN LOGIC
+        if ($user->role == 'eng.admin') {
+            $ticket->improvement_status = $request->status;
+            if ($request->status == 'CLOSED') {
+                $ticket->finished_date = Carbon::now();
+            } else if ($request->status == 'WIP' || $request->status == 'OPEN') {
+                $ticket->finished_date = null;
+            }
+            $ticket->save();
+            return redirect()->back()->with('success', 'Status telah diperbarui oleh Admin!');
+        }
+
+        if ($request->action == 'cancel') {
+            if ($ticket->requester_id == $user->id && $ticket->improvement_status == 'pending') {
+                $ticket->improvement_status = 'cancelled';
+                $ticket->save();
+                return redirect()->back()->with('success', 'Report berhasil dibatalkan!');
+            }
+            abort(403, 'Aksi tidak diizinkan');
+        }
+
+        if ($user->role == 'eng.admin') {
+            $request->validate([
+                'status' => 'required|in:OPEN,WIP,CLOSED,CANCELLED'
+            ]);
+            $ticket->improvement_status = $request->status;
+            $ticket->save();
+
+            return redirect()->back()->with('success', 'Tiket berhasil diperbarui!');
+        }
+        abort(403, 'Anda tidak memiliki akses.');
     }
 
     public function update(Request $request, WorkOrderEngineering $workOrder)
     {
         // PERBAIKAN DI SINI: Sesuaikan validasi dengan input view (improvement_status)
         $request->validate([
-            'improvement_status' => 'required|in:pending,in_progress,completed,cancelled',
+            'improvement_status' => 'required|in:OPEN,WIP,CLOSED,CANCELLED',
             'finished_date' => 'nullable|date',
             'start_time' => 'required',
             'end_time' => 'nullable',
@@ -212,7 +297,7 @@ class WorkOrderEngineeringController extends Controller
                     $row->improvement_status,
 
                     $row->engineer_tech,
-                    $row->repair_solution,
+                    $row->kerusakan_detail,
                     $row->sparepart,
                     $row->finished_date ? \Carbon\Carbon::parse($row->finished_date)->format('Y-m-d') : '',
                 ]);

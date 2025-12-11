@@ -20,17 +20,14 @@
     
     
         selected: [],
-        pageIds: {{ Js::from($pageIds ?? []) }}, // Pastikan controller mengirim ini
+        pageIds: {{ Js::from($pageIds ?? []) }},
     
         toggleSelectAll() {
-            // Cek apakah semua ID di halaman ini sudah dicentang
             const allSelected = this.pageIds.every(id => this.selected.includes(id));
     
             if (allSelected) {
-                // Uncheck semua yang ada di halaman ini
                 this.selected = this.selected.filter(id => !this.pageIds.includes(id));
             } else {
-                // Check semua yang ada di halaman ini
                 this.pageIds.forEach(id => {
                     if (!this.selected.includes(id)) this.selected.push(id);
                 });
@@ -125,7 +122,7 @@
         @if ($errors->any())
             <div x-init="setTimeout(() => showCreateModal = true, 500)"></div>
         @endif
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-8xl mx-auto sm:px-6 lg:px-8">
 
             {{-- A. ALERT SUCCESS --}}
             @if (session('success'))
@@ -137,7 +134,6 @@
             @endif
 
             {{-- B. STATISTIK CARDS --}}
-            {{-- B. STATISTIK CARDS (INTERACTIVE) --}}
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6" x-data="{ show: false }" x-init="setTimeout(() => show = true, 100)">
 
                 {{-- Card Total --}}
@@ -146,8 +142,6 @@
                     x-transition:enter-end="opacity-100 translate-y-0"
                     class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-indigo-100 
                            transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-indigo-300 cursor-default">
-
-                    {{-- Background Glow Effect saat Hover --}}
                     <div
                         class="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-all duration-500">
                     </div>
@@ -158,7 +152,7 @@
                             </div>
                             <div
                                 class="text-3xl font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">
-                                {{ $workOrders->total() }}
+                                {{ $countTotal }}
                             </div>
                         </div>
                         <div
@@ -188,7 +182,7 @@
                             <div class="text-sm font-semibold text-amber-500 mb-1 tracking-wide uppercase">Pending</div>
                             <div
                                 class="text-3xl font-extrabold text-slate-800 group-hover:text-amber-600 transition-colors">
-                                {{ \App\Models\Engineering\WorkOrderEngineering::where('improvement_status', 'pending')->count() }}
+                                {{ $countPending }}
                             </div>
                         </div>
                         <div
@@ -206,8 +200,6 @@
                     x-transition:enter-end="opacity-100 translate-y-0"
                     class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-indigo-100 
             transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-indigo-300 cursor-default">
-
-                    {{-- Background Glow Effect --}}
                     <div
                         class="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-all duration-500">
                     </div>
@@ -218,11 +210,9 @@
                             </div>
                             <div
                                 class="text-3xl font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">
-                                {{ \App\Models\GeneralAffair\WorkOrderGeneralAffair::where('status', 'in_progress')->count() }}
+                                {{ $countInProgress }}
                             </div>
                         </div>
-
-                        {{-- Icon dengan efek interaktif --}}
                         <div
                             class="p-3 bg-indigo-50 rounded-lg text-indigo-600 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -253,7 +243,7 @@
                             </div>
                             <div
                                 class="text-3xl font-extrabold text-slate-800 group-hover:text-emerald-600 transition-colors">
-                                {{ \App\Models\Engineering\WorkOrderEngineering::where('improvement_status', 'completed')->count() }}
+                                {{ $countCompleted }}
                             </div>
                         </div>
                         <div
@@ -329,7 +319,6 @@
 
                                     {{-- EXPORT BUTTON (Dynamic Text) --}}
                                     <button type="submit" formaction="{{ route('ga.export') }}"
-                                        {{-- Jika ada yang dipilih, kirim input hidden 'selected_ids' (lewat JS handleExportClick atau hidden input manual) --}}
                                         class="group relative overflow-hidden bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-5 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 active:scale-95 transform w-full md:w-auto flex items-center justify-center gap-2">
                                         <div
                                             class="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700">
@@ -344,9 +333,7 @@
                                         {{-- Logic Teks Tombol --}}
                                         <span
                                             x-text="selectedTickets.length > 0 ? 'Export (' + selectedTickets.length + ') Terpilih' : 'Export Data'"></span>
-
-                                        {{-- Input Hidden untuk Selected IDs (Agar terkirim saat klik tombol ini) --}}
-                                        <input type="hidden" name="selected_ids" :value="selected.join(',')">
+                                        {{-- <input type="hidden" name="selected_ids" :value="selected.join(',')"> --}}
                                     </button>
                                 </div>
                             </form>
@@ -427,26 +414,19 @@
 
                                         {{-- Kolom 3: Lokasi --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            {{-- Container Flex Column agar badge tersusun atas-bawah --}}
                                             <div class="flex flex-col items-start gap-1">
-
-                                                {{-- Badge Plant (Hanya muncul jika ada data plant) --}}
                                                 @if ($item->plant)
                                                     <span
                                                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
                                                         Plant: {{ $item->plant }}
                                                     </span>
                                                 @endif
-
-                                                {{-- Badge Department (Hanya muncul jika ada data department) --}}
                                                 @if ($item->department)
                                                     <span
                                                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
                                                         Dept: {{ $item->department }}
                                                     </span>
                                                 @endif
-
-                                                {{-- Fallback: Tampilkan strip jika keduanya kosong (opsional) --}}
                                                 @if (!$item->plant && !$item->department)
                                                     <span class="text-xs text-gray-400 italic">-</span>
                                                 @endif
@@ -551,7 +531,6 @@
                                         d="M6 18L18 6M6 6l12 12"></path>
                                 </svg></button>
                         </div>
-                        {{-- Tampilkan semua error validasi --}}
                         @if ($errors->any())
                             <div class="alert alert-danger">
                                 <ul>
@@ -565,7 +544,6 @@
                             enctype="multipart/form-data">
                             @csrf
                             <div class="px-4 py-5 sm:p-6 space-y-6">
-
                                 {{-- Row 1: Info Dasar --}}
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
@@ -616,7 +594,6 @@
 
                                 {{-- Row 3: Detail --}}
                                 <div class="grid grid-cols-2 gap-4">
-
                                     <div>
                                         <label class="block text-sm font-semibold text-slate-700 mb-1">Kategori
                                             Prioritas</label>
@@ -648,7 +625,7 @@
                                         class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500">
                                         <option value="">-- Open atau Sudah Direncanakan --</option>
                                         <option value="OPEN">Open</option>
-                                        <option value="SUDAH_DIRENCANAKAN">Sudah Direncanakan</option>
+                                        <option value="SUDAH DIRENCANAKAN">Sudah Direncanakan</option>
                                     </select>
                                 </div>
 

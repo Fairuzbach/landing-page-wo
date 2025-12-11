@@ -11,6 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
     {{-- CONTAINER UTAMA --}}
+    {{-- CONTAINER UTAMA --}}
     <div class="py-12" x-data="{
         // --- 1. MODAL STATES ---
         showDetailModal: false,
@@ -24,7 +25,7 @@
         pageIds: {{ Js::from($workOrders->pluck('id')) }},
     
         // --- 3. DATA HOLDER ---
-        ticket: null,
+        ticket: {}, // Initialized as empty object
         allPlants: {{ Js::from($plants) }},
         allTechnicians: {{ Js::from($technicians) }},
     
@@ -34,11 +35,14 @@
         currentShift: '',
         selectedPlant: '',
         machineOptions: [],
+        work_method: 'sendiri',
+        currentUsername: '{{ auth()->user()->name }}',
+        userRole: '{{ auth()->user()->role }}',
         isManualInput: false,
     
-        form: { kerusakan: '', kerusakan_detail: '', priority: 'low', plant: '', machine_name: '', damaged_part: '', production_status: '', file_name: '' },
+        form: { kerusakan: '', kerusakan_detail: '', priority: 'low', initial_status: 'OPEN', plant: '', machine_name: '', damaged_part: '', production_status: '', file_name: '', improvement_parameters: '', engineer_tech: [] },
     
-        editForm: { id: '', ticket_num: '', improvement_status: '', finished_date: '', start_time: '', end_time: '', selectedTechnicians: [], technician_string: '', production_note: '', maintenance_note: '', repair_solution: '', sparepart: '' },
+        editForm: { id: '', ticket_num: '', status: '', maintenance_note: '' },
     
         // ================= FUNCTIONS =================
     
@@ -50,6 +54,18 @@
                 this.pageIds.forEach(id => {
                     if (!this.selectedTickets.includes(id)) this.selectedTickets.push(id);
                 });
+            }
+        },
+    
+        toggleEngineer(name) {
+            if (this.form.engineer_tech.includes(name)) {
+                this.form.engineer_tech = this.form.engineer_tech.filter(n => n !== name);
+            } else {
+                if (this.form.engineer_tech.length < 5) {
+                    this.form.engineer_tech.push(name);
+                } else {
+                    alert('Maksimal 5 Engineer!');
+                }
             }
         },
     
@@ -100,41 +116,27 @@
             if (this.$refs.createForm.reportValidity()) { this.$refs.createForm.submit(); } else { this.showConfirmModal = false; }
         },
     
-        // --- OPEN EDIT MODAL ---
-        openEditModal(data) {
+        // --- OPEN DETAIL MODAL ---
+        openDetailModal(data, reporterName) {
             this.ticket = data;
+            // Inject Reporter Name manually
+            this.ticket.requester_name = reporterName;
+            this.showDetailModal = true;
+        },
+    
+        // --- OPEN EDIT/APPROVAL MODAL ---
+        openEditModal(data, reporterName) {
+            this.ticket = data;
+            // Inject Reporter Name manually
+            this.ticket.requester_name = reporterName;
+    
+            // Map data to editForm
             this.editForm.id = data.id;
             this.editForm.ticket_num = data.ticket_num;
-            this.editForm.improvement_status = data.improvement_status;
-            this.editForm.production_note = data.production_status;
-    
-            this.editForm.finished_date = data.finished_date ? data.finished_date.substring(0, 10) : '';
-    
-            this.editForm.start_time = data.start_time ? data.start_time.substring(0, 5) : '';
-            this.editForm.end_time = data.end_time ? data.end_time.substring(0, 5) : '';
-    
-            this.editForm.maintenance_note = data.maintenance_note || '';
-            this.editForm.repair_solution = data.repair_solution || '';
-            this.editForm.sparepart = data.sparepart || '';
-    
-            this.editForm.selectedTechnicians = (data.engineer_tech || data.technician) ?
-                (data.engineer_tech || data.technician).split(', ').filter(Boolean) : [];
-            this.editForm.technician_string = (data.engineer_tech || data.technician) || '';
+            this.editForm.status = data.improvement_status;
+            this.editForm.maintenance_note = ''; // Reset note
     
             this.showEditModal = true;
-        },
-    
-        addTechnician(techName) {
-            if (!techName || this.editForm.selectedTechnicians.length >= 5) return;
-            if (!this.editForm.selectedTechnicians.includes(techName)) {
-                this.editForm.selectedTechnicians.push(techName);
-            }
-            this.editForm.technician_string = this.editForm.selectedTechnicians.join(', ');
-        },
-    
-        removeTechnician(index) {
-            this.editForm.selectedTechnicians.splice(index, 1);
-            this.editForm.technician_string = this.editForm.selectedTechnicians.join(', ');
         },
     
         // --- INIT ---
@@ -162,6 +164,8 @@
                     this.form.kerusakan_detail = '';
                     this.form.damaged_part = '';
                     this.form.file_name = '';
+                    this.form.engineer_tech = [];
+                    this.work_method = 'sendiri';
                 }
             });
         }
@@ -215,20 +219,31 @@
             @endif
 
             {{-- B. STATISTIK CARDS --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6" x-data="{ show: false }" x-init="setTimeout(() => show = true, 100)">
 
-                {{-- Card Total (Blue Theme) --}}
-                <div
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-blue-500 
-                transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:bg-blue-50 cursor-default">
-                    <div class="flex items-center justify-between">
+                {{-- Card Total --}}
+                <div x-show="show" x-transition:enter="transition ease-out duration-500"
+                    x-transition:enter-start="opacity-0 translate-y-4"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-indigo-100 
+                           transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-indigo-300 cursor-default">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-all duration-500">
+                    </div>
+
+                    <div class="relative flex items-center justify-between z-10">
                         <div>
-                            <div class="text-sm font-medium text-indigo-600 mb-1">Total Tiket</div>
-                            <div class="text-3xl font-bold text-slate-900">{{ $workOrders->total() }}</div>
+                            <div class="text-sm font-semibold text-indigo-500 mb-1 tracking-wide uppercase">Total Tiket
+                            </div>
+                            <div
+                                class="text-3xl font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                                {{ $countTotal }}
+                            </div>
                         </div>
-                        <div class="p-3 bg-indigo-100 rounded-full text-indigo-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <div
+                            class="p-3 bg-indigo-50 rounded-lg text-indigo-600 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor" class="w-6 h-6">
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
                             </svg>
@@ -236,20 +251,31 @@
                     </div>
                 </div>
 
-                {{-- Card Pending (Amber Theme) --}}
-                <div
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-amber-500 
-                transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:bg-amber-50 cursor-default">
-                    <div class="flex items-center justify-between">
+                {{-- Card Pending --}}
+                {{-- Card OPEN (Ubah jadi BIRU) --}}
+                <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-100"
+                    x-transition:enter-start="opacity-0 translate-y-4"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-blue-100 
+           transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-blue-300 cursor-default">
+
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-blue-50 rounded-full group-hover:bg-blue-100 transition-all duration-500">
+                    </div>
+
+                    <div class="relative flex items-center justify-between z-10">
                         <div>
-                            <div class="text-sm font-medium text-amber-600 mb-1">Pending</div>
-                            <div class="text-3xl font-bold text-slate-900">
-                                {{ \App\Models\Engineering\WorkOrderEngineering::where('improvement_status', 'pending')->count() }}
+                            <div class="text-sm font-semibold text-blue-500 mb-1 tracking-wide uppercase">OPEN</div>
+                            <div
+                                class="text-3xl font-extrabold text-slate-800 group-hover:text-blue-600 transition-colors">
+                                {{ $countPending }}
                             </div>
                         </div>
-                        <div class="p-3 bg-amber-100 rounded-full text-amber-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <div
+                            class="p-3 bg-blue-50 rounded-lg text-blue-600 group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300 shadow-sm">
+                            {{-- Icon Open (Folder/Document) --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor" class="w-6 h-6">
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -257,27 +283,69 @@
                     </div>
                 </div>
 
-                {{-- Card Selesai (Emerald/Green Theme) --}}
-                <div
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-emerald-500 
-                transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:bg-emerald-50 cursor-default">
-                    <div class="flex items-center justify-between">
+                {{-- Card WIP (Ubah jadi AMBER/KUNING) --}}
+                <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-200"
+                    x-transition:enter-start="opacity-0 translate-y-4"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-amber-100 
+transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-amber-300 cursor-default">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-amber-50 rounded-full group-hover:bg-amber-100 transition-all duration-500">
+                    </div>
+
+                    <div class="relative flex items-center justify-between z-10">
                         <div>
-                            <div class="text-sm font-medium text-emerald-600 mb-1">Selesai</div>
-                            <div class="text-3xl font-bold text-slate-900">
-                                {{ \App\Models\Engineering\WorkOrderEngineering::where('improvement_status', 'completed')->count() }}
+                            <div class="text-sm font-semibold text-amber-500 mb-1 tracking-wide uppercase">WIP (IN
+                                PROGRESS)
+                            </div>
+                            <div
+                                class="text-3xl font-extrabold text-slate-800 group-hover:text-amber-600 transition-colors">
+                                {{ $countInProgress }}
                             </div>
                         </div>
-                        <div class="p-3 bg-emerald-100 rounded-full text-emerald-600">
+                        <div
+                            class="p-3 bg-amber-50 rounded-lg text-amber-600 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300 shadow-sm">
+                            {{-- Icon WIP (Tools/Settings) --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Card CLOSED (Tetap EMERALD/HIJAU) --}}
+                <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-200"
+                    x-transition:enter-start="opacity-0 translate-y-4"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-emerald-100 
+           transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-emerald-300 cursor-default">
+
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50 rounded-full group-hover:bg-emerald-100 transition-all duration-500">
+                    </div>
+
+                    <div class="relative flex items-center justify-between z-10">
+                        <div>
+                            <div class="text-sm font-semibold text-emerald-500 mb-1 tracking-wide uppercase">CLOSED
+                            </div>
+                            <div
+                                class="text-3xl font-extrabold text-slate-800 group-hover:text-emerald-600 transition-colors">
+                                {{ $countCompleted }}
+                            </div>
+                        </div>
+                        <div
+                            class="p-3 bg-emerald-50 rounded-lg text-emerald-600 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300 shadow-sm">
+                            {{-- Icon Check/Success --}}
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                stroke-width="2" stroke="currentColor" class="w-6 h-6">
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>
                     </div>
                 </div>
-
             </div>
 
             {{-- C. TABEL DATA --}}
@@ -292,8 +360,9 @@
                                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                         <svg class="w-4 h-4 text-slate-500" aria-hidden="true"
                                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                                stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
+                                            <path stroke="currentColor" stroke-linecap="round"
+                                                stroke-linejoin="round" stroke-width="2"
+                                                d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
                                         </svg>
                                     </div>
                                     <input type="text" name="search" value="{{ request('search') }}"
@@ -304,16 +373,15 @@
                                     <select name="improvement_status" onchange="this.form.submit()"
                                         class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
                                         <option value="">Filter Status</option>
-                                        <option value="pending"
-                                            {{ request('improvement_status') == 'pending' ? 'selected' : '' }}>Pending
+                                        <option value="OPEN"
+                                            {{ request('improvement_status') == 'OPEN' ? 'selected' : '' }}>Open
                                         </option>
-                                        <option value="in_progress"
-                                            {{ request('improvement_status') == 'in_progress' ? 'selected' : '' }}>In
-                                            Progress
+                                        <option value="WIP"
+                                            {{ request('improvement_status') == 'WIP' ? 'selected' : '' }}>WIP
                                         </option>
-                                        <option value="completed"
-                                            {{ request('improvement_status') == 'completed' ? 'selected' : '' }}>
-                                            Completed
+                                        <option value="CLOSED"
+                                            {{ request('improvement_status') == 'CLOSED' ? 'selected' : '' }}>
+                                            Closed
                                         </option>
                                         <option value="cancelled"
                                             {{ request('improvement_status') == 'cancelled' ? 'selected' : '' }}>
@@ -369,7 +437,7 @@
                                         Mesin & Plant</th>
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        Improvement</th>
+                                        Judul dan Uraian</th>
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                         Status</th>
@@ -409,13 +477,13 @@
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @php
                                                 $statusClass = match ($wo->improvement_status) {
-                                                    'pending'
+                                                    'OPEN'
+                                                        => 'bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-600/20',
+                                                    'WIP'
                                                         => 'bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-600/20',
-                                                    'in_progress'
-                                                        => 'bg-indigo-100 text-indigo-800 ring-1 ring-inset ring-indigo-600/20',
-                                                    'completed'
+                                                    'CLOSED'
                                                         => 'bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-600/20',
-                                                    'cancelled'
+                                                    'CANCELLED'
                                                         => 'bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-600/20',
                                                     default => 'bg-slate-100 text-slate-800',
                                                 };
@@ -432,9 +500,15 @@
                                             <button type="button"
                                                 @click='ticket = @json($wo); ticket.requester_name = @json($wo->requester->name ?? '-'); showDetailModal=true'
                                                 class="text-indigo-600 hover:text-indigo-900 mr-3">Detail</button>
+                                            @if (auth()->user()->id === $wo->requester_id && auth()->user()->role !== 'eng.admin')
+                                                <button type="button"
+                                                    @click="openEditModal({{ Js::from($wo) }}, '{{ $wo->requester->name ?? '-' }}')"
+                                                    class="text-amber-600 hover:text-amber-900 font-bold ml-2">Edit
+                                                    Status</button>
+                                            @endif
                                             @if (auth()->user()->role === 'eng.admin')
                                                 <button type="button"
-                                                    @click='openEditModal(@json($wo))'
+                                                    @click="openEditModal({{ Js::from($wo) }}, '{{ $wo->requester->name ?? '-' }}')"
                                                     class="text-slate-600 hover:text-slate-900 font-bold">Edit</button>
                                             @endif
                                         </td>
@@ -503,17 +577,80 @@
                                     </div>
                                 </div>
                                 {{-- Row 2 --}}
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label class="block text-sm font-semibold text-slate-700 mb-1">Shift</label>
-                                        <input type="text" name="shift" x-model="currentShift" readonly
-                                            class="w-full rounded-md border-slate-300 bg-slate-100 text-slate-600 shadow-sm cursor-not-allowed font-bold text-center">
-                                    </div>
-                                    <div><label class="block text-sm font-semibold text-slate-700 mb-1">Nama
-                                            Pelapor</label>
-                                        <input type="text" value="{{ auth()->user()->name }}" readonly
-                                            class="w-full rounded-md border-slate-300 bg-slate-100 text-slate-500 shadow-sm cursor-not-allowed">
+                                <div class="mb-4">
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Metode
+                                        Pengerjaan</label>
+                                    <div class="flex items-center gap-4">
+                                        <label class="inline-flex items-center cursor-pointer">
+                                            <input type="radio" name="work_method_dummy" value="sendiri"
+                                                x-model="work_method"
+                                                class="form-radio text-blue-600 focus:ring-blue-500 border-gray-300">
+                                            <span class="ml-2 text-sm text-slate-700">Dilakukan Sendiri</span>
+                                        </label>
+
+                                        <label class="inline-flex items-center cursor-pointer">
+                                            <input type="radio" name="work_method_dummy" value="bersama"
+                                                x-model="work_method"
+                                                class="form-radio text-blue-600 focus:ring-blue-500 border-gray-300">
+                                            <span class="ml-2 text-sm text-slate-700">Bersama Tim (Max 5)</span>
+                                        </label>
                                     </div>
                                 </div>
+
+                                <template x-if="work_method === 'sendiri'">
+                                    <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                        <p class="text-sm text-blue-800 font-medium">
+                                            Engineer: <span x-text="currentUsername"></span>
+                                        </p>
+                                        <p class="text-xs text-blue-600 mt-1">Anda akan tercatat sebagai pelaksana
+                                            tunggal pekerjaan ini.</p>
+
+                                        {{-- HIDDEN INPUT: Otomatis kirim nama user yang login --}}
+                                        <input type="hidden" name="engineer_tech[]" :value="currentUsername">
+                                    </div>
+                                </template>
+
+                                <template x-if="work_method === 'bersama'">
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-semibold text-slate-700 mb-2">
+                                            Pilih Anggota Tim (Termasuk Anda jika ikut) <span
+                                                class="text-red-500">*</span>
+                                        </label>
+
+                                        <div
+                                            class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded bg-slate-50">
+                                            @foreach ($technicians as $tech)
+                                                <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                                    <input type="checkbox" value="{{ $tech->name }}"
+                                                        {{-- Logic checked --}}
+                                                        :checked="form.engineer_tech.includes('{{ $tech->name }}')"
+                                                        {{-- Logic disable max 5 --}}
+                                                        :disabled="form.engineer_tech.length >= 5 && !form.engineer_tech
+                                                            .includes('{{ $tech->name }}')"
+                                                        @change="toggleEngineer('{{ $tech->name }}')"
+                                                        class="rounded text-blue-600 focus:ring-blue-500 border-gray-300">
+                                                    <span class="text-sm text-slate-700">{{ $tech->name }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+
+                                        {{-- Validation Helper Message --}}
+                                        <p class="text-xs mt-1"
+                                            :class="form.engineer_tech.length == 0 ? 'text-red-500' : 'text-slate-500'">
+                                            <span x-show="form.engineer_tech.length == 0">Wajib pilih minimal 1
+                                                orang.</span>
+                                            <span x-show="form.engineer_tech.length > 0">
+                                                Terpilih: <span x-text="form.engineer_tech.length"></span>/5
+                                            </span>
+                                        </p>
+
+                                        {{-- HIDDEN INPUT: Kirim array nama yang dipilih --}}
+                                        <template x-for="name in form.engineer_tech">
+                                            <input type="hidden" name="engineer_tech[]" :value="name">
+                                        </template>
+                                    </div>
+                                </template>
+
                                 {{-- Row 3 --}}
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div><label class="block text-sm font-semibold text-slate-700 mb-1">Plant</label>
@@ -546,9 +683,9 @@
                                 </div>
                                 {{-- Row 4 --}}
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label class="block text-sm font-semibold text-slate-700 mb-1">Request</label>
+                                    <div><label class="block text-sm font-semibold text-slate-700 mb-1">Judul</label>
                                         <input type="text" name="damaged_part" x-model="form.damaged_part"
-                                            placeholder="Contoh: Take Up, dll"
+                                            placeholder="Contoh: Pengukuran hasil ketebalan lapisan timah.."
                                             class="w-full rounded-md border-slate-300 text-slate-900 shadow-sm focus:border-indigo-500"
                                             required>
                                         <input type="hidden" name="kerusakan" x-bind:value="form.damaged_part">
@@ -557,7 +694,7 @@
                                         <label for="improvement_parameters"
                                             class="block text-sm font-semibold text-slate-700 mb-1">Parameter
                                             Improvement</label>
-                                        <select name="improvement_parameters" id="improvement_parameters"
+                                        <select name="improvement_parameters" x-model="form.improvement_parameters"
                                             class="w-full rounded-md border-slate-300 text-slate-900 shadow-sm focus:border-indigo-500"
                                             required>
                                             <option value="" disabled selected>-- Pilih Parameter --</option>
@@ -583,6 +720,21 @@
                                                 Improvement</label>
                                             <textarea name="kerusakan_detail" x-model="form.kerusakan_detail" rows="1" placeholder="Jelaskan..."
                                                 class="w-full rounded-md border-slate-300 text-slate-900 shadow-sm focus:border-indigo-500" required></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-slate-700 mb-1">Status
+                                                Awal</label>
+                                            <select name="initial_status" x-model="form.initial_status"
+                                                class="w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 font-bold"
+                                                :class="{
+                                                    'text-blue-600': form.initial_status === 'OPEN',
+                                                    'text-amber-600': form.initial_status === 'WIP',
+                                                    'text-emerald-600': form.initial_status === 'CLOSED'
+                                                }">
+                                                <option value="OPEN">OPEN</option>
+                                                <option value="WIP">WIP (On Progress)</option>
+                                                <option value="CLOSED">CLOSED (Selesai)</option>
+                                            </select>
                                         </div>
                                     </div>
                                     <div><label class="block text-sm font-semibold text-slate-700 mb-1">Upload
@@ -647,10 +799,11 @@
                                                 x-text="form.plant"></span>
                                             <span class="font-semibold">Mesin:</span> <span
                                                 x-text="form.machine_name"></span>
-                                            <span class="font-semibold">Bagian Rusak:</span> <span
+                                            <span class="font-semibold">Judul:</span> <span
                                                 x-text="form.damaged_part"></span>
                                             <span class="font-semibold">Parameter Improvement:</span> <span
-                                                x-text="form.improvement_parameters"></span>
+                                                x-text="form.improvement_parameters ? form.improvement_parameters : 'Belum dipilih'"></span>
+
                                             <span class="font-semibold">Prioritas:</span> <span
                                                 x-text="form.priority.toUpperCase()"></span>
                                         </div>
@@ -720,10 +873,9 @@
                                                     x-text="ticket.report_time ? ticket.report_time.substring(0,5) : ''"></span>
                                             </p>
                                         </div>
-                                        <div><span class="text-xs text-slate-500 block mb-1">Pelapor / Shift</span>
+                                        <div><span class="text-xs text-slate-500 block mb-1">Pelapor</span>
                                             <p class="text-sm font-medium text-slate-900"><span
-                                                    x-text="ticket.requester_name"></span> (Shift <span
-                                                    x-text="ticket.shift"></span>)</p>
+                                                    x-text="ticket.requester_name"></span> </p>
                                         </div>
                                         <div><span class="text-xs text-slate-500 block mb-1">Plant / Area</span>
                                             <p class="text-sm font-medium text-slate-900" x-text="ticket.plant"></p>
@@ -733,7 +885,7 @@
                                                 x-text="ticket.machine_name">
                                             </p>
                                         </div>
-                                        <div><span class="text-xs text-slate-500 block mb-1">Bagian Rusak</span>
+                                        <div><span class="text-xs text-slate-500 block mb-1">Judul</span>
                                             <p class="text-sm font-medium text-slate-900"
                                                 x-text="ticket.damaged_part">
                                             </p>
@@ -743,9 +895,48 @@
                                             <p class="text-sm font-medium text-slate-900"
                                                 x-text="ticket.improvement_parameters"></p>
                                         </div>
-                                        <div><span class="text-xs text-slate-500 block mb-1">Engineer</span>
-                                            <p class="text-sm font-medium text-slate-900"
-                                                x-text="ticket.technicians ?? '-'"></p>
+                                        <div>
+                                            <span class="text-xs text-slate-500 block mb-2">Engineer</span>
+
+                                            <div class="flex flex-wrap gap-2">
+                                                {{-- Cek apakah ada data technicians/engineer_tech --}}
+                                                <template x-if="ticket.technicians || ticket.engineer_tech">
+
+                                                    {{-- 
+                LOGIKA UTAMA: 
+                1. Ambil string nama (technicians atau engineer_tech)
+                2. Gunakan .split(',') untuk memecahnya menjadi Array
+                3. Loop menggunakan x-for
+            --}}
+                                                    <template
+                                                        x-for="techName in (ticket.technicians || ticket.engineer_tech).split(',')"
+                                                        :key="techName">
+
+                                                        {{-- Tampilan Badge Per Nama --}}
+                                                        <span
+                                                            class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-sm">
+                                                            {{-- Icon User Kecil (Opsional, pemanis) --}}
+                                                            <svg class="w-3 h-3 mr-1.5 opacity-50" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                                    stroke-width="2"
+                                                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z">
+                                                                </path>
+                                                            </svg>
+
+                                                            {{-- Render Nama (trim() untuk menghapus spasi berlebih) --}}
+                                                            <span x-text="techName.trim()"></span>
+                                                        </span>
+
+                                                    </template>
+                                                </template>
+
+                                                {{-- Fallback jika kosong --}}
+                                                <template x-if="!ticket.technicians && !ticket.engineer_tech">
+                                                    <span class="text-sm text-slate-400 italic">- Tidak ada teknisi
+                                                        -</span>
+                                                </template>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
@@ -781,102 +972,90 @@
         {{-- MODAL 4: EDIT TICKET --}}
         <template x-teleport="body">
             <div x-show="showEditModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto">
-                <div x-show="showEditModal" class="fixed inset-0 bg-slate-500 bg-opacity-75 transition-opacity"
+                <div class="fixed inset-0 bg-slate-500 bg-opacity-75 transition-opacity"
                     @click="showEditModal = false"></div>
                 <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-                    <div x-show="showEditModal" x-transition:enter="ease-out duration-300"
-                        x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                        x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
-                        class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl">
+                    <div
+                        class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+
                         <div class="bg-white px-4 py-4 sm:px-6 border-b border-slate-200">
                             <h3 class="text-lg font-bold text-slate-900"
-                                x-text="'Update Status Laporan #' + (ticket ? ticket.ticket_num : '')"></h3>
+                                x-text="userRole === 'eng.admin' ? 'Admin Approval #' + editForm.ticket_num : 'Update Status Laporan #' + editForm.ticket_num">
+                            </h3>
                         </div>
-                        <form x-ref="editFormHtml" :action="'/engineering/work-orders/' + editForm.id"
+
+                        <form x-ref="editFormHtml" :action="'/engineering/' + editForm.id + '/update-status'"
                             method="POST">
                             @csrf
                             @method('PUT')
+
                             <div class="px-6 py-6 space-y-6">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                                        <select name="improvement_status" x-model="editForm.improvement_status"
-                                            class="w-full rounded-md bg-white border-slate-300 text-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
-                                            <option value="pending">Pending</option>
-                                            <option value="in_progress">In Progress</option>
-                                            <option value="completed">Completed</option>
-                                            <option value="cancelled">Cancelled</option>
+                                {{-- Info Ringkas --}}
+                                <div class="bg-slate-50 p-4 rounded-md border border-slate-200 text-sm">
+                                    <p class="font-bold text-slate-700" x-text="ticket.damaged_part"></p>
+                                    <p class="text-slate-500 mt-1" x-text="ticket.kerusakan_detail"></p>
+                                </div>
+
+                                {{-- === TAMPILAN USER (UPDATE STATUS) === --}}
+                                <template x-if="userRole !== 'eng.admin'">
+                                    <div>
+                                        <label class="block text-sm font-bold text-slate-700 mb-2">Update Status
+                                            Pengerjaan</label>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            {{-- Pilihan WIP --}}
+                                            <label class="cursor-pointer">
+                                                <input type="radio" name="status" value="WIP"
+                                                    x-model="editForm.status" class="peer sr-only">
+                                                <div
+                                                    class="rounded-md border border-slate-200 p-4 text-center hover:bg-amber-50 peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-700 transition-all">
+                                                    <div class="font-bold">WIP</div>
+                                                    <div class="text-xs">Sedang Dikerjakan</div>
+                                                </div>
+                                            </label>
+
+                                            {{-- Pilihan CLOSED --}}
+                                            <label class="cursor-pointer">
+                                                <input type="radio" name="status" value="CLOSED"
+                                                    x-model="editForm.status" class="peer sr-only">
+                                                <div
+                                                    class="rounded-md border border-slate-200 p-4 text-center hover:bg-emerald-50 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-700 transition-all">
+                                                    <div class="font-bold">CLOSED</div>
+                                                    <div class="text-xs">Selesai (Auto Date)</div>
+                                                </div>
+                                            </label>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-2">*Memilih CLOSED akan otomatis mencatat
+                                            tanggal selesai hari ini.</p>
+                                    </div>
+                                </template>
+
+                                {{-- === TAMPILAN ADMIN (APPROVAL LAMA) === --}}
+                                <template x-if="userRole === 'eng.admin'">
+                                    <div>
+                                        <label class="block text-sm font-bold text-slate-700 mb-2">Keputusan
+                                            Admin</label>
+                                        <select name="status" x-model="editForm.status"
+                                            class="w-full rounded-md border-slate-300">
+                                            <option value="OPEN">OPEN (Pending)</option>
+                                            <option value="WIP">WIP (In Progress)</option>
+                                            <option value="CLOSED">CLOSED (Completed)</option>
+                                            <option value="cancelled">CANCELLED</option>
                                         </select>
                                     </div>
-                                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Tanggal
-                                            Selesai</label>
-                                        <div class="relative"><input type="date" name="finished_date"
-                                                x-model="editForm.finished_date"
-                                                class="w-full rounded-md bg-white border-slate-300 text-slate-900 focus:border-indigo-500 focus:ring-indigo-500 pl-3">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Waktu Mulai
-                                            Improvement <span class="text-red-500">*</span></label>
-                                        <input type="text" name="start_time" x-model="editForm.start_time"
-                                            class="w-full rounded-md bg-white border-slate-300 text-slate-900 focus:border-indigo-500 focus:ring-indigo-500"
-                                            placeholder="00:00" required x-init="if (typeof flatpickr !== 'undefined') { flatpickr($el, { enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true, static: true, defaultDate: editForm.start_time, onChange: (selectedDates, dateStr) => { editForm.start_time = dateStr; } }); }">
-                                    </div>
-                                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Waktu Selesai
-                                            Improvement</label>
-                                        <input type="text" name="end_time" x-model="editForm.end_time"
-                                            class="w-full rounded-md bg-white border-slate-300 text-slate-900 focus:border-indigo-500 focus:ring-indigo-500"
-                                            placeholder="00:00" x-init="if (typeof flatpickr !== 'undefined') { flatpickr($el, { enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true, static: true, defaultDate: editForm.end_time, onChange: (selectedDates, dateStr) => { editForm.end_time = dateStr; } }); }">
-                                    </div>
-                                </div>
-                                <div class="space-y-2"><label class="block text-sm font-medium text-slate-700">Nama
-                                        Engineer (Maks. 5)</label>
-                                    <select @change="addTechnician($event.target.value); $event.target.value = ''"
-                                        class="w-full rounded-md bg-white border-slate-300 text-slate-900 focus:border-indigo-500 focus:ring-indigo-500">
-                                        <option value="">Pilih Engineer...</option>
-                                        <template x-for="tech in allTechnicians" :key="tech.id">
-                                            <option :value="tech.name" x-text="tech.name"></option>
-                                        </template>
-                                    </select>
-                                    <div class="flex flex-wrap gap-2 mt-2"><template
-                                            x-for="(tech, index) in editForm.selectedTechnicians"
-                                            :key="index"><span
-                                                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800 border border-indigo-200"><span
-                                                    x-text="tech"></span><button type="button"
-                                                    @click="removeTechnician(index)"
-                                                    class="ml-2 text-indigo-500 hover:text-indigo-700 focus:outline-none font-bold">&times;</button></span></template>
-                                    </div>
-                                    <input type="hidden" name="engineer_tech" x-model="editForm.technician_string">
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Keterangan
-                                            Parameter Improvement</label><input type="text"
-                                            x-model="editForm.production_note"
-                                            class="w-full rounded-md bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed"
-                                            readonly></div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Uraian
-                                            Improvement <span class="text-red-500">*</span> </label>
-                                        <textarea name="repair_solution" x-model="editForm.repair_solution" rows="3"
-                                            placeholder="Jelaskan detail improvement..."
-                                            class="w-full rounded-md bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
-                                            required></textarea>
-                                    </div>
-                                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Sparepart</label>
-                                        <textarea name="sparepart" x-model="editForm.sparepart" rows="3"
-                                            class="w-full rounded-md bg-white border-slate-300 text-slate-900 focus:border-indigo-500 focus:ring-indigo-500"></textarea>
-                                    </div>
-                                </div>
+                                </template>
+
                             </div>
+
                             <div
                                 class="bg-slate-50 px-6 py-4 sm:flex sm:flex-row-reverse border-t border-slate-200 gap-3">
-                                <button type="button"
-                                    @click="$refs.editFormHtml.reportValidity() ? $refs.editFormHtml.submit() : null"
-                                    class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">Simpan
-                                    Perubahan</button>
+                                <button type="submit"
+                                    class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 sm:ml-3 sm:w-auto sm:text-sm">
+                                    Simpan Status
+                                </button>
                                 <button type="button" @click="showEditModal = false"
-                                    class="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">Batal</button>
+                                    class="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                                    Batal
+                                </button>
                             </div>
                         </form>
                     </div>

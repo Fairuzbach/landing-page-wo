@@ -35,6 +35,7 @@ Route::middleware('auth')->group(function () {
 
     Route::put('engineering/work-orders/{workOrder}', [WorkOrderEngineeringController::class, 'update'])
         ->name('work-orders.update');
+    Route::put('/engineering/{id}/update-status', [WorkOrderEngineeringController::class, 'updateStatus'])->name('work-orders.updateStatus');
 
     Route::prefix('ga')->name('ga.')->group(function () {
         //index(tabel utama) -> route('ga.index')
