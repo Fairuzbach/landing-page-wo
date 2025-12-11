@@ -9,9 +9,23 @@ Route::get('/', function () {
     return view('landing');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// routes/web.php
+
+Route::middleware(['auth', 'verified'])->group(function () {
+
+    // Route Dashboard sebagai Landing Page
+    Route::get('/dashboard', function () {
+        return view('landing');
+    })->name('dashboard');
+
+    // Route Engineering
+    Route::get('/engineering', [WorkOrderEngineeringController::class, 'index'])
+        ->name('engineering.index');
+
+    // Route General Affair
+    Route::get('/general-affair', [GeneralAffairController::class, 'index'])
+        ->name('ga.index');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -35,6 +49,7 @@ Route::middleware('auth')->group(function () {
 
     Route::put('engineering/work-orders/{workOrder}', [WorkOrderEngineeringController::class, 'update'])
         ->name('work-orders.update');
+    Route::put('/engineering/{id}/update-status', [WorkOrderEngineeringController::class, 'updateStatus'])->name('work-orders.updateStatus');
 
     Route::prefix('ga')->name('ga.')->group(function () {
         //index(tabel utama) -> route('ga.index')

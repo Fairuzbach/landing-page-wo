@@ -16,20 +16,18 @@
         showCreateModal: false,
         showConfirmModal: false,
         showEditModal: false,
+        showExportModal: false,
     
     
         selected: [],
-        pageIds: {{ Js::from($pageIds ?? []) }}, // Pastikan controller mengirim ini
+        pageIds: {{ Js::from($pageIds ?? []) }},
     
         toggleSelectAll() {
-            // Cek apakah semua ID di halaman ini sudah dicentang
             const allSelected = this.pageIds.every(id => this.selected.includes(id));
     
             if (allSelected) {
-                // Uncheck semua yang ada di halaman ini
                 this.selected = this.selected.filter(id => !this.pageIds.includes(id));
             } else {
-                // Check semua yang ada di halaman ini
                 this.pageIds.forEach(id => {
                     if (!this.selected.includes(id)) this.selected.push(id);
                 });
@@ -124,10 +122,7 @@
         @if ($errors->any())
             <div x-init="setTimeout(() => showCreateModal = true, 500)"></div>
         @endif
-        <div>
-
-        </div>
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-8xl mx-auto sm:px-6 lg:px-8">
 
             {{-- A. ALERT SUCCESS --}}
             @if (session('success'))
@@ -139,62 +134,90 @@
             @endif
 
             {{-- B. STATISTIK CARDS --}}
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6" x-data="{ show: false }" x-init="setTimeout(() => show = true, 100)">
 
-                {{-- Card Total (Blue) --}}
-                <div
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-blue-500 
-                transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:bg-blue-50">
-                    <div class="flex items-center justify-between">
+                {{-- Card Total --}}
+                <div x-show="show" x-transition:enter="transition ease-out duration-500"
+                    x-transition:enter-start="opacity-0 translate-y-4"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-indigo-100 
+                           transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-indigo-300 cursor-default">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-all duration-500">
+                    </div>
+
+                    <div class="relative flex items-center justify-between z-10">
                         <div>
-                            <div class="text-sm font-medium text-slate-500 mb-1">Total Tiket GA</div>
-                            <div class="text-3xl font-bold text-slate-800">{{ $workOrders->total() }}</div>
+                            <div class="text-sm font-semibold text-indigo-500 mb-1 tracking-wide uppercase">Total Tiket
+                            </div>
+                            <div
+                                class="text-3xl font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                                {{ $countTotal }}
+                            </div>
                         </div>
-                        <div class="p-3 bg-blue-100 rounded-full text-blue-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
-                                </path>
+                        <div
+                            class="p-3 bg-indigo-50 rounded-lg text-indigo-600 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
                             </svg>
                         </div>
                     </div>
                 </div>
 
-                {{-- Card Pending (Amber) --}}
-                <div
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-amber-500 
-                transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:bg-amber-50">
-                    <div class="flex items-center justify-between">
+                {{-- Card Pending --}}
+                <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-100"
+                    x-transition:enter-start="opacity-0 translate-y-4"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-amber-100 
+                           transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-amber-300 cursor-default">
+
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-amber-50 rounded-full group-hover:bg-amber-100 transition-all duration-500">
+                    </div>
+
+                    <div class="relative flex items-center justify-between z-10">
                         <div>
-                            <div class="text-sm font-medium text-slate-500 mb-1">Pending</div>
-                            <div class="text-3xl font-bold text-slate-800">
-                                {{ \App\Models\GeneralAffair\WorkOrderGeneralAffair::where('status', 'pending')->count() }}
+                            <div class="text-sm font-semibold text-amber-500 mb-1 tracking-wide uppercase">Pending</div>
+                            <div
+                                class="text-3xl font-extrabold text-slate-800 group-hover:text-amber-600 transition-colors">
+                                {{ $countPending }}
                             </div>
                         </div>
-                        <div class="p-3 bg-amber-100 rounded-full text-amber-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        <div
+                            class="p-3 bg-amber-50 rounded-lg text-amber-600 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>
                     </div>
                 </div>
+                <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-200"
+                    x-transition:enter-start="opacity-0 translate-y-4"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-indigo-100 
+            transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-indigo-300 cursor-default">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-all duration-500">
+                    </div>
 
-                {{-- Card In Progress (Indigo) --}}
-                <div
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-indigo-800 
-                transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:bg-indigo-50">
-                    <div class="flex items-center justify-between">
+                    <div class="relative flex items-center justify-between z-10">
                         <div>
-                            <div class="text-sm font-medium text-slate-500 mb-1">In Progress</div>
-                            <div class="text-3xl font-bold text-slate-800">
-                                {{ \App\Models\GeneralAffair\WorkOrderGeneralAffair::where('status', 'in_progress')->count() }}
+                            <div class="text-sm font-semibold text-indigo-500 mb-1 tracking-wide uppercase">In Progress
+                            </div>
+                            <div
+                                class="text-3xl font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                                {{ $countInProgress }}
                             </div>
                         </div>
-                        <div class="p-3 bg-indigo-100 text-indigo-800 rounded-full">
+                        <div
+                            class="p-3 bg-indigo-50 rounded-lg text-indigo-600 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
                                 </path>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
@@ -203,27 +226,36 @@
                         </div>
                     </div>
                 </div>
+                {{-- Card Selesai --}}
+                <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-200"
+                    x-transition:enter-start="opacity-0 translate-y-4"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    class="relative group bg-white overflow-hidden shadow-sm sm:rounded-xl p-6 border border-emerald-100 
+                           transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-emerald-300 cursor-default">
 
-                {{-- Card Selesai (Emerald) --}}
-                <div
-                    class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-emerald-500 
-                transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:bg-emerald-50">
-                    <div class="flex items-center justify-between">
+                    <div
+                        class="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50 rounded-full group-hover:bg-emerald-100 transition-all duration-500">
+                    </div>
+
+                    <div class="relative flex items-center justify-between z-10">
                         <div>
-                            <div class="text-sm font-medium text-slate-500 mb-1">Selesai</div>
-                            <div class="text-3xl font-bold text-slate-800">
-                                {{ \App\Models\GeneralAffair\WorkOrderGeneralAffair::where('status', 'completed')->count() }}
+                            <div class="text-sm font-semibold text-emerald-500 mb-1 tracking-wide uppercase">Selesai
+                            </div>
+                            <div
+                                class="text-3xl font-extrabold text-slate-800 group-hover:text-emerald-600 transition-colors">
+                                {{ $countCompleted }}
                             </div>
                         </div>
-                        <div class="p-3 bg-emerald-100 rounded-full text-emerald-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M5 13l4 4L19 7"></path>
+                        <div
+                            class="p-3 bg-emerald-50 rounded-lg text-emerald-600 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>
                     </div>
                 </div>
-
             </div>
 
             {{-- C. TABEL DATA --}}
@@ -233,13 +265,13 @@
                 Dept Anda: <strong>{{ auth()->user()->divisi ?? 'Tidak ada dept' }}</strong>
             </div> --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-slate-900 dark:text-slate-100">
+                <div class="p-6 text-slate-900">
 
                     {{-- Header & Create Button --}}
                     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
 
                         <div class="w-full lg:flex-1 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                            <form action="{{ route('ga.index') }}" method="GET"
+                            <form id="filterForm" action="{{ route('ga.index') }}" method="GET"
                                 class="flex flex-col md:flex-row gap-4 md:items-end">
 
                                 <div class="w-full md:flex-1">
@@ -255,48 +287,53 @@
                                             </svg>
                                         </div>
                                         <input type="text" name="search" value="{{ request('search') }}"
-                                            class="text-gray-800 pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                            placeholder="Contoh: HRD, Plant A...">
+                                            class="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                            placeholder="Tiket, Plant, Dept, Uraian...">
                                     </div>
                                 </div>
 
                                 <div class="w-full md:w-48">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
                                     <select name="status"
-                                        class="block w-full rounded-md text-gray-700 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                                        <option value="">Semua Status</option>
+                                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                                        <option value="">Semua</option>
                                         <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>
                                             Pending</option>
                                         <option value="in_progress"
                                             {{ request('status') == 'in_progress' ? 'selected' : '' }}>In Progress
                                         </option>
                                         <option value="completed"
-                                            {{ request('status') == 'completed' ? 'selected' : '' }}>
-                                            Completed</option>
+                                            {{ request('status') == 'completed' ? 'selected' : '' }}>Completed</option>
                                         <option value="cancelled"
-                                            {{ request('status') == 'cancelled' ? 'selected' : '' }}>
-                                            Cancelled</option>
+                                            {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                                     </select>
                                 </div>
 
                                 <input type="hidden" name="selected_ids" :value="selected.join(',')">
 
-                                <div class="flex flex-col md:flex-row gap-2 w-full md:w-auto ">
+                                <div class="flex flex-col md:flex-row gap-2 w-full md:w-auto">
                                     <button type="submit"
-                                        class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm font-medium flex justify-center items-center gap-2 transition shadow-sm">Filter</button>
+                                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition shadow-sm">Filter</button>
                                     <a href="{{ route('ga.index') }}"
-                                        class="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium flex justify-center items-center gap-2 transition shadow-sm">Reset</a>
+                                        class="text-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 transition">Reset</a>
 
+                                    {{-- EXPORT BUTTON (Dynamic Text) --}}
                                     <button type="submit" formaction="{{ route('ga.export') }}"
-                                        class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm font-medium flex justify-center items-center gap-2 transition shadow-sm">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
+                                        class="group relative overflow-hidden bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-5 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 active:scale-95 transform w-full md:w-auto flex items-center justify-center gap-2">
+                                        <div
+                                            class="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700">
+                                        </div>
+                                        <svg class="w-5 h-5 transition-transform group-hover:-translate-y-0.5"
+                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
                                             </path>
                                         </svg>
+
+                                        {{-- Logic Teks Tombol --}}
                                         <span
-                                            x-text="selected.length > 0 ? 'Export (' + selected.length + ')' : 'Export'"></span>
+                                            x-text="selectedTickets.length > 0 ? 'Export (' + selectedTickets.length + ') Terpilih' : 'Export Data'"></span>
+                                        {{-- <input type="hidden" name="selected_ids" :value="selected.join(',')"> --}}
                                     </button>
                                 </div>
                             </form>
@@ -304,8 +341,12 @@
 
                         <div class="w-full lg:w-auto">
                             <button @click="showCreateModal = true" type="button"
-                                class="w-full lg:w-auto flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 lg:py-4 px-6 rounded-lg text-sm transition-all shadow-md">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                class="group relative overflow-hidden bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-5 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 active:scale-95 transform w-full md:w-auto flex items-center justify-center gap-2">
+                                <div
+                                    class="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700">
+                                </div>
+                                <svg class="w-5 h-5 transition-transform group-hover:rotate-90" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 4v16m8-8H4"></path>
                                 </svg>
@@ -373,26 +414,19 @@
 
                                         {{-- Kolom 3: Lokasi --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            {{-- Container Flex Column agar badge tersusun atas-bawah --}}
                                             <div class="flex flex-col items-start gap-1">
-
-                                                {{-- Badge Plant (Hanya muncul jika ada data plant) --}}
                                                 @if ($item->plant)
                                                     <span
                                                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
                                                         Plant: {{ $item->plant }}
                                                     </span>
                                                 @endif
-
-                                                {{-- Badge Department (Hanya muncul jika ada data department) --}}
                                                 @if ($item->department)
                                                     <span
                                                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
                                                         Dept: {{ $item->department }}
                                                     </span>
                                                 @endif
-
-                                                {{-- Fallback: Tampilkan strip jika keduanya kosong (opsional) --}}
                                                 @if (!$item->plant && !$item->department)
                                                     <span class="text-xs text-gray-400 italic">-</span>
                                                 @endif
@@ -440,7 +474,7 @@
                                             <button type="button"
                                                 @click='ticket = @json($item); ticket.user_name = "{{ $item->user->name ?? 'User' }}"; showDetailModal=true'
                                                 class="text-blue-600 hover:text-blue-900 mr-3">Detail</button>
-                                            @if (in_array(auth()->user()->role, ['admin', 'ga.admin']))
+                                            @if (in_array(auth()->user()->role, ['ga.admin']))
                                                 <button type="button"
                                                     @click='openEditModal(@json($item))'
                                                     class="text-slate-600 hover:text-slate-900 font-bold">Update</button>
@@ -497,7 +531,6 @@
                                         d="M6 18L18 6M6 6l12 12"></path>
                                 </svg></button>
                         </div>
-                        {{-- Tampilkan semua error validasi --}}
                         @if ($errors->any())
                             <div class="alert alert-danger">
                                 <ul>
@@ -511,7 +544,6 @@
                             enctype="multipart/form-data">
                             @csrf
                             <div class="px-4 py-5 sm:p-6 space-y-6">
-
                                 {{-- Row 1: Info Dasar --}}
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
@@ -562,7 +594,6 @@
 
                                 {{-- Row 3: Detail --}}
                                 <div class="grid grid-cols-2 gap-4">
-
                                     <div>
                                         <label class="block text-sm font-semibold text-slate-700 mb-1">Kategori
                                             Prioritas</label>
@@ -594,7 +625,7 @@
                                         class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500">
                                         <option value="">-- Open atau Sudah Direncanakan --</option>
                                         <option value="OPEN">Open</option>
-                                        <option value="SUDAH_DIRENCANAKAN">Sudah Direncanakan</option>
+                                        <option value="SUDAH DIRENCANAKAN">Sudah Direncanakan</option>
                                     </select>
                                 </div>
 
