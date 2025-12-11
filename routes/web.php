@@ -9,9 +9,23 @@ Route::get('/', function () {
     return view('landing');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// routes/web.php
+
+Route::middleware(['auth', 'verified'])->group(function () {
+
+    // Route Dashboard sebagai Landing Page
+    Route::get('/dashboard', function () {
+        return view('landing');
+    })->name('dashboard');
+
+    // Route Engineering
+    Route::get('/engineering', [WorkOrderEngineeringController::class, 'index'])
+        ->name('engineering.index');
+
+    // Route General Affair
+    Route::get('/general-affair', [GeneralAffairController::class, 'index'])
+        ->name('ga.index');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
