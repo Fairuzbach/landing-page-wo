@@ -351,7 +351,7 @@ class DatabaseSeeder extends Seeder
                 'name' => ucwords(Str::lower($name)),
                 'username' => $usernameKey,
                 'email' => $usernameKey . '@jembo.com',
-                'password' => Hash::make('jemboEngineer123'), //default password
+                'password' => Hash::make('welcomejembo'), //default password
                 'role' => $role,
                 'divisi' => 'Engineering',
             ]);

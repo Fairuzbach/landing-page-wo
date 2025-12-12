@@ -86,12 +86,18 @@
                         class="ms-2 text-sm text-gray-600 group-hover:text-gray-900 transition-colors">{{ __('Ingat saya') }}</span>
                 </label>
 
+
+
                 @if (Route::has('password.request'))
                     <a class="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline transition-all"
                         href="{{ route('password.request') }}">
                         {{ __('Lupa password?') }}
                     </a>
                 @endif
+                <a class="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline transition-all"
+                    href="{{ route('register') }}">
+                    {{ __('Belum punya akun?') }}
+                </a>
             </div>
 
             <div class="mt-8">
