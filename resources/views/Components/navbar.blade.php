@@ -44,7 +44,11 @@
         {{-- Tampilan Jika User BELUM LOGIN (Tamu) --}}
         <a href="{{ route('login') }}"
             class="bg-white/90 backdrop-blur-sm px-5 py-2.5 rounded-full font-semibold text-sm text-indigo-600 shadow-sm hover:shadow-md hover:bg-indigo-50 transition-all border border-indigo-100">
-            Masuk / Daftar
+            Masuk
+        </a>
+        <a href="{{ route('register') }}"
+            class="bg-white/90 backdrop-blur-sm px-5 py-2.5 rounded-full font-semibold text-sm text-indigo-600 shadow-sm hover:shadow-md hover:bg-indigo-50 transition-all border border-indigo-100">
+            Daftar
         </a>
     @endauth
 </div>

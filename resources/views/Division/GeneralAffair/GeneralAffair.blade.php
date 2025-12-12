@@ -9,6 +9,7 @@
     {{-- LOAD LIBRARY --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <div class="py-12" x-data="{
         // --- 1. MODAL STATES ---
@@ -19,19 +20,77 @@
         showExportModal: false,
     
     
-        selected: [],
-        pageIds: {{ Js::from($pageIds ?? []) }},
+        selected: JSON.parse(localStorage.getItem('ga_selected_ids') || '[]').map(String),
+        pageIds: {{ Js::from($pageIds ?? []) }}.map(String),
+        locationMap: {
+            'Plant A': 'Low Voltage',
+            'Plant C': 'Low Voltage',
+            'Autowire': 'Low Voltage',
+            'MC Cable': 'Low Voltage',
+    
+            'QC Lab': 'QR',
+            'QC LV': 'QR',
+            'QC MV': 'QR',
+    
+            'Plant SC': 'SC', // Dept SC
+            'Plant RM1': 'RM',
+            'Plant RM2': 'RM',
+            'Plant RM5': 'RM',
+    
+            'Workshop Electric': 'MT', // Plant MT -> Dept MT
+            'Konstruksi': 'FH', // Plant FH -> Dept FH
+            'Plant E': 'FO', // Plant E -> Dept FO
+            'Plant Tools': 'PE', // Plant PE -> Dept PE
+            'Gudang Jadi': 'SS' // Plant SS -> Dept SS
+        },
+    
+        form: {
+            plant: '', // Ini sekarang LOKASI
+            department: '', // Ini akan otomatis terisi
+            category: 'RINGAN',
+            description: '',
+            file_name: '',
+            parameter_permintaan: '',
+            status_permintaan: ''
+        },
+    
+        // LOGIC OTOMATIS PILIH DEPT
+        updateDepartment() {
+            // Ambil teks dari opsi lokasi yang dipilih
+            let select = document.getElementById('plantSelect');
+            let selectedText = select.options[select.selectedIndex].text;
+    
+            // Cek apakah ada di mapping
+            if (this.locationMap[selectedText]) {
+                this.form.department = this.locationMap[selectedText];
+            } else {
+                // Jika tidak ada di mapping, reset atau biarkan (opsional)
+                // this.form.department = ''; 
+            }
+        },
+    
+        get selectedTickets() {
+            return this.selected;
+        },
     
         toggleSelectAll() {
+            // Cek apakah semua item di halaman ini sudah terpilih
             const allSelected = this.pageIds.every(id => this.selected.includes(id));
     
             if (allSelected) {
+                // Uncheck semua yang ada di halaman ini
                 this.selected = this.selected.filter(id => !this.pageIds.includes(id));
             } else {
+                // Check semua yang ada di halaman ini
                 this.pageIds.forEach(id => {
                     if (!this.selected.includes(id)) this.selected.push(id);
                 });
             }
+        },
+        // Fungsi untuk reset selection manual (opsional)
+        clearSelection() {
+            this.selected = [];
+            localStorage.removeItem('ga_selected_ids');
         },
     
         // --- 2. DATA HOLDER ---
@@ -81,7 +140,7 @@
         },
     
         submitForm() {
-            // Manual trigger submit karena tombol ada di modal konfirmasi
+            {{-- // Manual trigger submit karena tombol ada di modal konfirmasi --}}
             if (this.$refs.createForm.reportValidity()) {
                 this.$refs.createForm.submit();
             } else {
@@ -89,7 +148,8 @@
             }
         },
     
-        // --- OPEN EDIT MODAL (ADMIN) ---
+    
+        {{-- // --- OPEN EDIT MODAL (ADMIN) --- --}}
         openEditModal(data) {
             console.log('Data yang diterima:', data);
             this.ticket = data;
@@ -126,13 +186,32 @@
 
             {{-- A. ALERT SUCCESS --}}
             @if (session('success'))
-                <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative"
-                    role="alert">
-                    <strong class="font-bold">Berhasil!</strong>
-                    <span class="block sm:inline">{{ session('success') }}</span>
-                </div>
+                <script>
+                    // FIX: Sebelumnya tertulis function({ yang salah sintaks
+                    document.addEventListener('DOMContentLoaded', function() {
+                        Swal.fire({
+                            title: 'Berhasil',
+                            text: "{{ session('success') }}",
+                            icon: 'success',
+                            confirmButtonColor: '#3085d6',
+                            confirmButtonText: 'OK'
+                        });
+                    });
+                </script>
             @endif
-
+            @if (session('error'))
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        Swal.fire({
+                            title: 'Gagal!',
+                            text: "{{ session('error') }}",
+                            icon: 'error',
+                            confirmButtonColor: '#d33',
+                            confirmButtonText: 'Tutup'
+                        });
+                    });
+                </script>
+            @endif
             {{-- B. STATISTIK CARDS --}}
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6" x-data="{ show: false }" x-init="setTimeout(() => show = true, 100)">
 
@@ -258,6 +337,10 @@
                 </div>
             </div>
 
+
+
+
+
             {{-- C. TABEL DATA --}}
             {{-- debug role --}}
             {{-- <div class="bg-red-200 p-2 text-red-800">
@@ -297,7 +380,8 @@
                                     <select name="status"
                                         class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
                                         <option value="">Semua</option>
-                                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>
+                                        <option value="pending"
+                                            {{ request('status') == 'pending' ? 'selected' : '' }}>
                                             Pending</option>
                                         <option value="in_progress"
                                             {{ request('status') == 'in_progress' ? 'selected' : '' }}>In Progress
@@ -316,6 +400,19 @@
                                         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition shadow-sm">Filter</button>
                                     <a href="{{ route('ga.index') }}"
                                         class="text-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 transition">Reset</a>
+                                    @if (auth()->user()->role === 'ga.admin')
+                                        <a href="{{ route('ga.dashboard') }}"
+                                            class="group relative overflow-hidden bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 px-5 rounded-lg text-sm transition-all duration-200 shadow-md flex items-center justify-center gap-2">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                                            </svg>
+                                            Statistik
+                                        </a>
+                                    @endif
 
                                     {{-- EXPORT BUTTON (Dynamic Text) --}}
                                     <button type="submit" formaction="{{ route('ga.export') }}"
@@ -334,6 +431,11 @@
                                         <span
                                             x-text="selectedTickets.length > 0 ? 'Export (' + selectedTickets.length + ') Terpilih' : 'Export Data'"></span>
                                         {{-- <input type="hidden" name="selected_ids" :value="selected.join(',')"> --}}
+                                    </button>
+                                    <button type="button" x-show="selected.length > 0" @click="clearSelection()"
+                                        class="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-2 rounded-md text-sm font-medium transition"
+                                        x-transition>
+                                        Reset (X)
                                     </button>
                                 </div>
                             </form>
@@ -374,10 +476,14 @@
                                         Tiket / Tanggal</th>
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                        Pelapor</th>
+
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                         Lokasi / Dept</th>
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        Kategori</th>
+                                        Bobot Pekerjaan</th>
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                         Uraian</th>
@@ -400,7 +506,8 @@
 
                                         {{-- Kolom 1: Checkbox Row --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <input type="checkbox" value="{{ $item->id }}" x-model="selected"
+                                            <input type="checkbox" value="{{ (string) $item->id }}"
+                                                x-model="selected"
                                                 class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
                                         </td>
 
@@ -411,14 +518,18 @@
                                             <div class="text-xs text-slate-500">
                                                 {{ $item->created_at->format('d M Y') }}</div>
                                         </td>
-
+                                        {{-- Kolom Pelapor --}}
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-bold text-gray-800 font-mono">
+                                                {{ $item->requester_name }}</div>
+                                        </td>
                                         {{-- Kolom 3: Lokasi --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex flex-col items-start gap-1">
                                                 @if ($item->plant)
                                                     <span
                                                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                                                        Plant: {{ $item->plant }}
+                                                        Lokasi: {{ $item->plant }}
                                                     </span>
                                                 @endif
                                                 @if ($item->department)
@@ -560,33 +671,42 @@
 
                                 {{-- Row 2: Lokasi (Plant OR Dept) --}}
                                 <div class="bg-blue-50 p-4 rounded-md border border-blue-100">
-                                    <label class="block text-sm font-bold text-blue-800 mb-2">Lokasi Pekerjaan <span
+                                    <label class="block text-sm font-bold text-blue-800 mb-2">Lokasi & Department <span
                                             class="text-red-500">*Wajib</span></label>
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label class="text-xs text-slate-600 block mb-1">Plant</label>
-                                            <select name="plant_id"
+                                            <label class="text-xs text-slate-600 block mb-1">Lokasi</label>
+                                            <select name="plant_id" id="plantSelect" x-model="form.plant"
+                                                @change="updateDepartment()"
                                                 class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
                                                 required>
-                                                <option value="">-- Pilih Plant --</option>
-
+                                                <option value="">-- Pilih Lokasi --</option>
                                                 @foreach ($plants as $plant)
                                                     <option value="{{ $plant->id }}">{{ $plant->name }}</option>
                                                 @endforeach
-
                                             </select>
                                         </div>
+                                        {{-- INPUT DEPARTMENT (SELECT) --}}
                                         <div>
                                             <label class="text-xs text-slate-600 block mb-1">Department</label>
                                             <select name="department" x-model="form.department"
                                                 class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                                                required">
+                                                required>
                                                 <option value="">-- Pilih Dept --</option>
+                                                {{-- Daftar Department --}}
                                                 <option value="IT">IT</option>
-                                                <option value="HR">HR</option>
-                                                <option value="Finance">Finance</option>
-                                                <option value="Facility">Facility</option>
-                                                <option value="Production">Production</option>
+                                                <option value="FH">FH</option>
+                                                <option value="PE">PE</option>
+                                                <option value="MT">MT</option>
+                                                <option value="GA">GA</option>
+                                                <option value="FO">FO</option>
+                                                <option value="SS">SS</option>
+                                                <option value="SC">SC</option>
+                                                <option value="Low Voltage">Low Voltage</option>
+                                                <option value="Medium Voltage">Medium Voltage</option>
+                                                {{-- Tambahan Dept agar mapping jalan (RM & QR) --}}
+                                                <option value="RM">RM</option>
+                                                <option value="QR">QR</option>
                                             </select>
                                         </div>
                                     </div>
@@ -594,65 +714,67 @@
 
                                 {{-- Row 3: Detail --}}
                                 <div class="grid grid-cols-2 gap-4">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-slate-700 mb-1">Bobot
+                                                Pekerjaan</label>
+                                            <select name="category" x-model="form.category"
+                                                class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500">
+                                                <option value="Ringan">Ringan</option>
+                                                <option value="Sedang">Sedang</option>
+                                                <option value="Berat">Berat</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-slate-700 mb-1">Parameter
+                                                Permintaan <span class="text-red-500">*Wajib</span></label>
+                                            <select name="parameter_permintaan" x-model="form.category"
+                                                class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                                                required>
+                                                <option>-- Pilih Parameter --</option>
+                                                <option value="KEBERSIHAN">Kebersihan</option>
+                                                <option value="PEMELIHARAAN">Pemeliharaan</option>
+                                                <option value="PERBAIKAN">Perbaikan</option>
+                                                <option value="PEMBUATAN_BARU">Pembuatan Baru</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                     <div>
-                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Kategori
-                                            Prioritas</label>
-                                        <select name="category" x-model="form.category"
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Status
+                                            Permintaan</label>
+                                        <select name="status_permintaan" x-model="form.status_permintaan"
                                             class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500">
-                                            <option value="LOW">LOW (Biasa)</option>
-                                            <option value="MEDIUM">MEDIUM (Penting)</option>
-                                            <option value="HIGH">HIGH (Darurat)</option>
+                                            <option value="">-- Open atau Sudah Direncanakan --</option>
+                                            <option value="OPEN">Open</option>
+                                            <option value="SUDAH DIRENCANAKAN">Sudah Direncanakan</option>
                                         </select>
                                     </div>
+
                                     <div>
-                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Parameter
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Uraian
                                             Permintaan <span class="text-red-500">*Wajib</span></label>
-                                        <select name="parameter_permintaan" x-model="form.category"
+                                        <textarea name="description" x-model="form.description" rows="3"
                                             class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                                            required>
-                                            <option>-- Pilih Parameter --</option>
-                                            <option value="KEBERSIHAN">Kebersihan</option>
-                                            <option value="PEMELIHARAAN">Pemeliharaan</option>
-                                            <option value="PERBAIKAN">Perbaikan</option>
-                                            <option value="PEMBUATAN_BARU">Pembuatan Baru</option>
-                                        </select>
+                                            placeholder="Jelaskan detail pekerjaan..." required></textarea>
                                     </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Status
-                                        Permintaan</label>
-                                    <select name="status_permintaan" x-model="form.status_permintaan"
-                                        class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="">-- Open atau Sudah Direncanakan --</option>
-                                        <option value="OPEN">Open</option>
-                                        <option value="SUDAH DIRENCANAKAN">Sudah Direncanakan</option>
-                                    </select>
-                                </div>
 
-                                <div>
-                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Uraian
-                                        Permintaan <span class="text-red-500">*Wajib</span></label>
-                                    <textarea name="description" x-model="form.description" rows="3"
-                                        class="w-full rounded-md border-slate-300 focus:ring-blue-500 focus:border-blue-500"
-                                        placeholder="Jelaskan detail pekerjaan..." required></textarea>
-                                </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-1">Foto Bukti <span
+                                                class="text-red-500">*Wajib</span></label>
+                                        <input type="file" name="photo" @change="handleFile" required
+                                            class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                        <p class="text-xs text-slate-500 mt-1">Format: JPG, PNG, JPEG. Max: 5MB.</p>
+                                    </div>
 
-                                <div>
-                                    <label class="block text-sm font-semibold text-slate-700 mb-1">Foto Bukti <span
-                                            class="text-red-500">*Wajib</span></label>
-                                    <input type="file" name="photo" @change="handleFile" required
-                                        class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                    <p class="text-xs text-slate-500 mt-1">Format: JPG, PNG, JPEG. Max: 5MB.</p>
                                 </div>
-
-                            </div>
-                            <div class="px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse bg-slate-50 rounded-b-lg gap-2">
-                                <button type="button" @click="showConfirmModal = true"
-                                    class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:w-auto sm:text-sm">Submit
-                                    Ticket</button>
-                                <button type="button" @click="showCreateModal = false"
-                                    class="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm">Batal</button>
-                            </div>
+                                <div
+                                    class="px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse bg-slate-50 rounded-b-lg gap-2">
+                                    <button type="button" @click="showConfirmModal = true"
+                                        class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:w-auto sm:text-sm">Submit
+                                        Ticket</button>
+                                    <button type="button" @click="showCreateModal = false"
+                                        class="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm">Batal</button>
+                                </div>
                         </form>
                     </div>
                 </div>
@@ -711,43 +833,44 @@
                                         <div>
                                             <span class="text-xs font-bold text-slate-500 uppercase">Nomor Tiket</span>
                                             <p class="text-2xl font-bold text-blue-600 font-mono mt-1"
-                                                x-text="ticket.ticket_num"></p>
+                                                x-text="ticket?.ticket_num"></p>
                                         </div>
                                         <div class="text-right">
                                             <span class="text-xs font-bold text-slate-500 uppercase">Status</span>
                                             <div class="mt-1">
                                                 <span
                                                     class="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800"
-                                                    x-text="ticket.status.toUpperCase().replace('_', ' ')"></span>
+                                                    x-text="ticket?.status.toUpperCase().replace('_', ' ')"></span>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <span class="text-xs text-slate-500 block mb-1">User Pelapor</span>
-                                            <p class="font-medium text-slate-900" x-text="ticket.user_name"></p>
+                                            <p class="font-medium text-slate-900" x-text="ticket?.user_name"></p>
                                         </div>
                                         <div>
                                             <span class="text-xs text-slate-500 block mb-1">Lokasi</span>
                                             <p class="font-medium text-slate-900"
-                                                x-text="ticket.plant ? 'Plant: ' + ticket.plant : 'Dept: ' + ticket.department">
+                                                x-text="ticket?.plant ? 'Plant: ' + ticket?.plant : 'Dept: ' + ticket?.department">
                                             </p>
                                         </div>
                                         <div>
-                                            <span class="text-xs text-slate-500 block mb-1">Kategori</span>
-                                            <p class="font-medium text-slate-900" x-text="ticket.category"></p>
+                                            <span class="text-xs text-slate-500 block mb-1">Bobot Pekerjaan</span>
+                                            <p class="font-medium text-slate-900" x-text="ticket?.category"></p>
                                         </div>
                                         <div>
                                             <span class="text-xs text-slate-500 block mb-1">Target Selesai</span>
                                             <p class="font-medium text-slate-900"
-                                                x-text="ticket.target_completion_date ? ticket.target_completion_date : '-'">
+                                                x-text="ticket?.target_completion_date ? ticket?.target_completion_date : '-'">
                                             </p>
                                         </div>
                                     </div>
                                     <div class="bg-slate-50 p-4 rounded border">
                                         <span class="text-xs font-bold text-slate-500 uppercase block mb-2">Uraian
                                             Permintaan</span>
-                                        <p class="text-slate-800 whitespace-pre-wrap" x-text="ticket.description"></p>
+                                        <p class="text-slate-800 whitespace-pre-wrap" x-text="ticket?.description">
+                                        </p>
                                     </div>
                                     <template x-if="ticket.photo_path">
                                         <div class="mb-4 p-3 bg-gray-50 border rounded-lg text-center">
@@ -757,6 +880,58 @@
                                                 class="mx-auto max-h-64 object-contain rounded border border-gray-200">
                                         </div>
                                     </template>
+                                    {{-- ... Bagian Foto Bukti sebelumnya ... --}}
+
+                                    <hr class="my-4 border-slate-200">
+
+                                    {{-- SECTION TIMELINE HISTORY --}}
+                                    <div>
+                                        <h4 class="text-sm font-bold text-slate-900 mb-3 uppercase">Riwayat Aktivitas
+                                        </h4>
+
+                                        <div class="relative pl-4 border-l-2 border-slate-200 space-y-6">
+
+                                            {{-- Loop History dari Relasi --}}
+                                            <template x-if="ticket.histories && ticket.histories.length > 0">
+                                                <template x-for="history in ticket.histories" :key="history.id">
+                                                    <div class="relative">
+                                                        {{-- Dot Indikator --}}
+                                                        <div class="absolute -left-[21px] top-1 h-3 w-3 rounded-full border-2 border-white"
+                                                            :class="{
+                                                                'bg-blue-500': history.action === 'Created',
+                                                                'bg-emerald-500': history.action === 'Accepted' ||
+                                                                    history.action === 'Completed',
+                                                                'bg-rose-500': history.action === 'Declined' || history
+                                                                    .action === 'Cancelled',
+                                                                'bg-amber-500': history.action === 'Status Update'
+                                                            }">
+                                                        </div>
+
+                                                        {{-- Konten History --}}
+                                                        <div>
+                                                            <p class="text-xs text-slate-500 mb-0.5">
+                                                                <span class="font-bold text-slate-700"
+                                                                    x-text="history.user ? history.user.name : 'System'"></span>
+                                                                &bull;
+                                                                <span
+                                                                    x-text="new Date(history.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })"></span>
+                                                            </p>
+                                                            <p class="text-sm font-semibold text-slate-800"
+                                                                x-text="history.action"></p>
+                                                            <p class="text-sm text-slate-600"
+                                                                x-text="history.description"></p>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </template>
+
+                                            <template x-if="!ticket.histories || ticket.histories.length === 0">
+                                                <p class="text-xs text-slate-400 italic">Belum ada riwayat aktivitas.
+                                                </p>
+                                            </template>
+
+                                        </div>
+                                    </div>
                                 </div>
                             </template>
                         </div>
@@ -786,7 +961,7 @@
                             </h3>
                         </div>
 
-                        <form :action="'/ga/' + editForm.id + '/update-status'" method="POST">
+                        <form x-ref="editFormHtml" :action="'/ga/' + editForm.id + '/update-status'" method="POST">
                             @csrf
                             @method('PUT')
 
@@ -829,7 +1004,8 @@
 
                                             <div class="flex gap-2">
 
-                                                <button type="submit" name="action" value="decline"
+                                                <button type="submit" @click="confirmCancel()" name="action"
+                                                    value="decline"
                                                     class="bg-rose-600 text-white px-4 py-2 rounded hover:bg-rose-700 text-sm font-bold">
                                                     Ya, Tolak Tiket
                                                 </button>
@@ -928,11 +1104,37 @@
             </div>
         </template>
     </div>
+    @if (session('success'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    title: 'Berhasil!',
+                    text: "{{ session('success') }}",
+                    icon: 'success',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'OK'
+                });
+            });
+        </script>
+    @endif
+
+    @if (session('error'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    title: 'Gagal!',
+                    text: "{{ session('error') }}",
+                    icon: 'error',
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'Tutup'
+                });
+            });
+        </script>
+    @endif
     @push('scripts')
         <script>
             document.addEventListener('alpine:init', () => {
                 Alpine.data('gaForm', () => ({
-                    // Helper untuk inisialisasi Flatpickr pada input tanggal
                     initFlatpickr() {
                         flatpickr(".date-picker", {
                             dateFormat: "Y-m-d",
@@ -942,10 +1144,7 @@
                     }
                 }));
             });
-
-            // Event Listener Global (Opsional: Untuk debugging atau alert tambahan)
             document.addEventListener('DOMContentLoaded', function() {
-                // Cek jika ada session error dari Laravel controller
                 @if ($errors->any())
                     console.warn('Form validation errors:', @json($errors->all()));
                 @endif

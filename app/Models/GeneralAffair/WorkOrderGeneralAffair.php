@@ -5,6 +5,7 @@ namespace App\Models\GeneralAffair;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use App\Models\GeneralAffair\WorkOrderGaHistory;
 
 class WorkOrderGeneralAffair extends Model
 {
@@ -35,5 +36,10 @@ class WorkOrderGeneralAffair extends Model
     public function processor()
     {
         return $this->belongsTo(\App\Models\User::class, 'processed_by');
+    }
+
+    public function histories()
+    {
+        return $this->hasMany(WorkOrderGaHistory::class, 'work_order_id')->latest();
     }
 }

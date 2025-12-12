@@ -5,6 +5,7 @@ namespace App\Http\Controllers\GeneralAffair;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\GeneralAffair\WorkOrderGeneralAffair;
+use App\Models\GeneralAffair\WorkOrderGaHistory;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Models\Engineering\Plant;
@@ -52,15 +53,14 @@ class GeneralAffairController extends Controller
     }
     public function index(Request $request)
     {
-        // dd($request->all());
         $query = $this->buildQuery($request);
-        $workOrders = $query->paginate(5)->withQueryString();
+        $workOrders = $query->with(['user', 'histories.user'])->paginate(10)->withQueryString();
         $pageIds = $workOrders->pluck('id')->toArray();
         $plants = Plant::all();
 
+        // Hitung Counter Sederhana
         $user = Auth::user();
         $statsQuery = WorkOrderGeneralAffair::query();
-
         if ($user->role !== 'ga.admin') {
             $statsQuery->where('requester_id', $user->id);
         }
@@ -70,13 +70,124 @@ class GeneralAffairController extends Controller
         $countInProgress = (clone $statsQuery)->where('status', 'in_progress')->count();
         $countCompleted = (clone $statsQuery)->where('status', 'completed')->count();
 
-
-        return view('Division.GeneralAffair.GeneralAffair', compact('workOrders', 'plants', 'pageIds', 'countTotal', 'countPending', 'countInProgress', 'countCompleted'));
+        return view('Division.GeneralAffair.GeneralAffair', compact(
+            'workOrders',
+            'plants',
+            'pageIds',
+            'countTotal',
+            'countPending',
+            'countInProgress',
+            'countCompleted'
+        ));
     }
 
+    public function dashboard()
+    {
+        if (Auth::user()->role !== 'ga.admin') {
+            abort(403, 'Akses Ditolak.');
+        }
+
+        $statsQuery = WorkOrderGeneralAffair::query();
+
+        // 1. Counter Utama (Tetap sama)
+        $countTotal = (clone $statsQuery)->count();
+        $countPending = (clone $statsQuery)->where('status', 'pending')->count();
+        $countInProgress = (clone $statsQuery)->where('status', 'in_progress')->count();
+        $countCompleted = (clone $statsQuery)->where('status', 'completed')->count();
+
+        // --- CHART 1: SEMUA LOKASI (Bar Chart) ---
+        // Mengambil data berdasarkan kolom 'plant' (yang sekarang kita anggap Lokasi)
+        $locData = (clone $statsQuery)
+            ->selectRaw("plant as location, count(*) as total")
+            ->whereNotNull('plant')
+            ->groupBy('plant')
+            ->orderByDesc('total')
+            ->get();
+        $chartLocLabels = $locData->pluck('location')->toArray();
+        $chartLocValues = $locData->pluck('total')->toArray();
+
+        // --- CHART 2: SEMUA DEPARTMENT (Bar/Pie Chart) ---
+        $deptData = (clone $statsQuery)
+            ->selectRaw("department, count(*) as total")
+            ->whereNotNull('department')
+            ->groupBy('department')
+            ->orderByDesc('total')
+            ->get();
+        $chartDeptLabels = $deptData->pluck('department')->toArray();
+        $chartDeptValues = $deptData->pluck('total')->toArray();
+
+        // --- CHART 3: PARAMETER PERMINTAAN (Pie Chart) ---
+        $paramData = (clone $statsQuery)
+            ->selectRaw("parameter_permintaan, count(*) as total")
+            ->whereNotNull('parameter_permintaan')
+            ->groupBy('parameter_permintaan')
+            ->get();
+        $chartParamLabels = $paramData->pluck('parameter_permintaan')->toArray();
+        $chartParamValues = $paramData->pluck('total')->toArray();
+
+        // --- CHART 4: BOBOT PEKERJAAN (Dulu Kategori) ---
+        $bobotData = (clone $statsQuery)
+            ->selectRaw('category, count(*) as total') // Kolom database tetap 'category'
+            ->groupBy('category')
+            ->pluck('total', 'category')->toArray();
+
+        // Mapping label baru (Ringan, Sedang, Berat)
+        // Asumsi di DB: LOW -> Ringan, MEDIUM -> Sedang, HIGH -> Berat
+        $chartBobotLabels = ['Berat (High)', 'Sedang (Medium)', 'Ringan (Low)'];
+        $chartBobotValues = [
+            $bobotData['HIGH'] ?? 0,
+            $bobotData['MEDIUM'] ?? 0,
+            $bobotData['LOW'] ?? 0
+        ];
+
+        // --- GANTT CHART (Tetap sama) ---
+        $timelineRaw = WorkOrderGeneralAffair::whereNotNull('target_completion_date')
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        $ganttLabels = [];
+        $ganttData = [];
+        $ganttColors = [];
+
+        foreach ($timelineRaw as $ticket) {
+            $loc = $ticket->plant; // Lokasi
+            $ganttLabels[] = $ticket->ticket_num . " (" . $loc . ")";
+
+            $start = $ticket->created_at->format('Y-m-d');
+            $end = $ticket->target_completion_date ?? date('Y-m-d');
+            if ($end < $start) $end = $start;
+
+            $ganttData[] = [$start, $end];
+
+            if ($ticket->category == 'HIGH') $ganttColors[] = 'rgba(239, 68, 68, 0.7)';
+            elseif ($ticket->category == 'MEDIUM') $ganttColors[] = 'rgba(245, 158, 11, 0.7)';
+            else $ganttColors[] = 'rgba(34, 197, 94, 0.7)';
+        }
+
+        return view('Division.GeneralAffair.Dashboard', compact(
+            'countTotal',
+            'countPending',
+            'countInProgress',
+            'countCompleted',
+            'chartLocLabels',
+            'chartLocValues',
+            'chartDeptLabels',
+            'chartDeptValues',
+            'chartParamLabels',
+            'chartParamValues',
+            'chartBobotLabels',
+            'chartBobotValues',
+            'ganttLabels',
+            'ganttData',
+            'ganttColors'
+        ));
+    }
     //halaman form
     public function create()
     {
+        $plants = Plant::all();
         $workOrders = WorkOrderGeneralAffair::with('user')->latest()->paginate(10);
         return view('general-affair.index', compact('workOrders', 'plants'));
     }
@@ -103,7 +214,7 @@ class GeneralAffairController extends Controller
         $newSequence  = $lastTicket ? ((int) substr($lastTicket->ticket_num, -3) + 1) : 1;
         $ticketNum = $prefix . sprintf('%03d', $newSequence);
 
-        WorkOrderGeneralAffair::create([
+        $ticket = WorkOrderGeneralAffair::create([
             'ticket_num' => $ticketNum,
             'requester_id' => Auth::id(),
             'requester_name' => Auth::user()->name,
@@ -116,6 +227,12 @@ class GeneralAffairController extends Controller
             'status_permintaan' => $request->status_permintaan,
             'photo_path' => $photoPath,
         ]);
+        WorkOrderGaHistory::create([
+            'work_order_id' => $ticket->id,
+            'user_id' => Auth::id(),
+            'action' => 'Created',
+            'description' => 'Tiket baru berhasil dibuat.'
+        ]);
 
         return redirect()->route('ga.index')->with('success', 'Permintaan berhasil dibuat!');
     }
@@ -127,21 +244,27 @@ class GeneralAffairController extends Controller
         }
         $user = auth()->user();
         $ticket = WorkOrderGeneralAffair::findOrFail($id);
+        $oldStatus = $ticket->status;
         if ($ticket->status == 'pending') {
             if ($request->action == 'decline') {
                 $ticket->status = 'cancelled';
                 $ticket->processed_by = $user->id;
                 $ticket->processed_by_name = $user->name;
                 $ticket->save();
-                return redirect()->route('ga.index')->with('success', 'Permintaan telah di tolak.');
+
+                WorkOrderGaHistory::create([
+                    'work_order_id' => $ticket->id,
+                    'user_id' => $user->id,
+                    'action' => 'Declined',
+                    'description' => 'Permintaan ditolak oleh ' . $user->name . '.',
+                ]);
+
+                return redirect()->route('ga.index')->with('error', 'Permintaan telah di tolak.');
             }
             if ($request->action == 'accept') {
                 $request->validate([
                     'category' => 'required',
                     'target_date' => 'required|date',
-                ], [
-                    'target_date.required' => 'Target Date wajib diisi untuk menerima tiket.',
-                    'category.required'    => 'Kategori wajib dipilih.'
                 ]);
                 $ticket->status = 'in_progress';
                 $ticket->category = $request->category;
@@ -150,6 +273,12 @@ class GeneralAffairController extends Controller
                 $ticket->processed_by_name = $user->name;
                 $ticket->save();
 
+                WorkOrderGaHistory::create([
+                    'work_order_id' => $ticket->id,
+                    'user_id' => $user->id,
+                    'action' => 'Accepted',
+                    'description' => "Permintaan diterima. Target: {$request->target_date}. Kategori: {$request->category}.",
+                ]);
                 return redirect()->route('ga.index')->with('success', 'Permintaan berhasil diterima dan akan di proses.');
             }
         }
@@ -166,6 +295,14 @@ class GeneralAffairController extends Controller
         $ticket->processed_by = $user->id;
         $ticket->processed_by_name = $user->name;
         $ticket->save();
+
+        WorkOrderGaHistory::create([
+            'work_order_id' => $ticket->id,
+            'user_id' => $user->id,
+            'action' => 'Status Updated',
+            'description' => 'Status diubah dari ' . $oldStatus . ' menjadi ' . $request->status . '.',
+        ]);
+
         return redirect()->route('ga.index')->with('success', 'Status tiket berhasil diperbarui!');
     }
 

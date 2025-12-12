@@ -11,7 +11,6 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
     {{-- CONTAINER UTAMA --}}
-    {{-- CONTAINER UTAMA --}}
     <div class="py-12" x-data="{
         // --- 1. MODAL STATES ---
         showDetailModal: false,
@@ -251,8 +250,7 @@
                     </div>
                 </div>
 
-                {{-- Card Pending --}}
-                {{-- Card OPEN (Ubah jadi BIRU) --}}
+                {{-- Card Open --}}
                 <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-100"
                     x-transition:enter-start="opacity-0 translate-y-4"
                     x-transition:enter-end="opacity-100 translate-y-0"
@@ -283,7 +281,7 @@
                     </div>
                 </div>
 
-                {{-- Card WIP (Ubah jadi AMBER/KUNING) --}}
+                {{-- Card WIP --}}
                 <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-200"
                     x-transition:enter-start="opacity-0 translate-y-4"
                     x-transition:enter-end="opacity-100 translate-y-0"
@@ -315,7 +313,7 @@ transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-am
                     </div>
                 </div>
 
-                {{-- Card CLOSED (Tetap EMERALD/HIJAU) --}}
+                {{-- Card CLOSED --}}
                 <div x-show="show" x-transition:enter="transition ease-out duration-500 delay-200"
                     x-transition:enter-start="opacity-0 translate-y-4"
                     x-transition:enter-end="opacity-100 translate-y-0"
