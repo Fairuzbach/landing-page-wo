@@ -4,43 +4,51 @@ namespace App\Http\Controllers\GeneralAffair;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+// --- IMPORT LIBRARY EXCEL ---
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\WorkOrderExport;
+// ----------------------------
 use App\Models\GeneralAffair\WorkOrderGeneralAffair;
 use App\Models\GeneralAffair\WorkOrderGaHistory;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Models\Engineering\Plant;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GeneralAffairController extends Controller
 {
-    // HAPUS dd($request->all()); yang tadi kamu buat untuk debugging
-
+    // --- 1. HELPER QUERY (Untuk Filter) ---
     private function buildQuery(Request $request)
     {
         $query = WorkOrderGeneralAffair::query();
         $user = Auth::user();
+
+        // Jika bukan Admin GA, hanya lihat tiket sendiri
         if ($user->role !== 'ga.admin') {
             $query->where('requester_id', $user->id);
         }
-        // 1. SEARCH LOGIC
+
+        // Filter Search
         if ($request->filled('search')) {
             $search = $request->search;
-
             $query->where(function ($q) use ($search) {
-                $q->where('ticket_num', 'like', "%{$search}%")       // Cari No Tiket
-                    ->orWhere('description', 'like', "%{$search}%")    // Cari Uraian/Deskripsi
-                    ->orWhere('department', 'like', "%{$search}%")     // Cari Departemen
-                    ->orWhere('plant', 'like', "%{$search}%")          // Cari Nama Plant (Jika kolomnya string)
-                    ->orWhere('category', 'like', "%{$search}%");      // Cari Kategori (Low/High)
+                $q->where('ticket_num', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('department', 'like', "%{$search}%")
+                    ->orWhere('plant', 'like', "%{$search}%")
+                    ->orWhere('category', 'like', "%{$search}%")
+                    ->orWhere('processed_by_name', 'like', "%{$search}%");
             });
         }
 
-        // 2. FILTER STATUS
+        // Filter Status & Kategori
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
 
-        // 3. FILTER RANGE TANGGAL (Opsional jika form date diisi)
+        // Filter Tanggal
         if ($request->filled('start_date')) {
             $query->whereDate('created_at', '>=', $request->start_date);
         }
@@ -48,9 +56,10 @@ class GeneralAffairController extends Controller
             $query->whereDate('created_at', '<=', $request->end_date);
         }
 
-        // Load relasi user agar tidak berat (N+1 problem)
         return $query->with('user')->latest();
     }
+
+    // --- 2. HALAMAN UTAMA (INDEX) - YANG TADI HILANG ---
     public function index(Request $request)
     {
         $query = $this->buildQuery($request);
@@ -58,7 +67,7 @@ class GeneralAffairController extends Controller
         $pageIds = $workOrders->pluck('id')->toArray();
         $plants = Plant::all();
 
-        // Hitung Counter Sederhana
+        // Counter Sederhana untuk Index
         $user = Auth::user();
         $statsQuery = WorkOrderGeneralAffair::query();
         if ($user->role !== 'ga.admin') {
@@ -81,22 +90,37 @@ class GeneralAffairController extends Controller
         ));
     }
 
-    public function dashboard()
+    // --- 3. HALAMAN DASHBOARD (STATISTIK) ---
+    public function dashboard(Request $request)
     {
         if (Auth::user()->role !== 'ga.admin') {
             abort(403, 'Akses Ditolak.');
         }
 
+        // Ambil 10 Tiket Terakhir (exclude cancelled)
+        $query = WorkOrderGeneralAffair::where('status', '!=', 'cancelled');
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date)
+                ->whereDate('created_at', '<=', $request->end_date)->latest();
+        } else {
+            $query->latest()->take(30);
+        }
+        $workOrders = $query->get();
+
         $statsQuery = WorkOrderGeneralAffair::query();
 
-        // 1. Counter Utama (Tetap sama)
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $statsQuery->whereDate('created_at', '>=', $request->start_date)
+                ->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        // Counter Utama
         $countTotal = (clone $statsQuery)->count();
         $countPending = (clone $statsQuery)->where('status', 'pending')->count();
         $countInProgress = (clone $statsQuery)->where('status', 'in_progress')->count();
         $countCompleted = (clone $statsQuery)->where('status', 'completed')->count();
 
-        // --- CHART 1: SEMUA LOKASI (Bar Chart) ---
-        // Mengambil data berdasarkan kolom 'plant' (yang sekarang kita anggap Lokasi)
+        // Chart 1: LOKASI
         $locData = (clone $statsQuery)
             ->selectRaw("plant as location, count(*) as total")
             ->whereNotNull('plant')
@@ -106,7 +130,7 @@ class GeneralAffairController extends Controller
         $chartLocLabels = $locData->pluck('location')->toArray();
         $chartLocValues = $locData->pluck('total')->toArray();
 
-        // --- CHART 2: SEMUA DEPARTMENT (Bar/Pie Chart) ---
+        // Chart 2: DEPARTMENT
         $deptData = (clone $statsQuery)
             ->selectRaw("department, count(*) as total")
             ->whereNotNull('department')
@@ -116,7 +140,7 @@ class GeneralAffairController extends Controller
         $chartDeptLabels = $deptData->pluck('department')->toArray();
         $chartDeptValues = $deptData->pluck('total')->toArray();
 
-        // --- CHART 3: PARAMETER PERMINTAAN (Pie Chart) ---
+        // Chart 3: PARAMETER
         $paramData = (clone $statsQuery)
             ->selectRaw("parameter_permintaan, count(*) as total")
             ->whereNotNull('parameter_permintaan')
@@ -125,45 +149,67 @@ class GeneralAffairController extends Controller
         $chartParamLabels = $paramData->pluck('parameter_permintaan')->toArray();
         $chartParamValues = $paramData->pluck('total')->toArray();
 
-        // --- CHART 4: BOBOT PEKERJAAN (Dulu Kategori) ---
+        // Chart 4: BOBOT
         $bobotData = (clone $statsQuery)
-            ->selectRaw('category, count(*) as total') // Kolom database tetap 'category'
+            ->selectRaw('category, count(*) as total')
             ->groupBy('category')
             ->pluck('total', 'category')->toArray();
 
-        // Mapping label baru (Ringan, Sedang, Berat)
-        // Asumsi di DB: LOW -> Ringan, MEDIUM -> Sedang, HIGH -> Berat
         $chartBobotLabels = ['Berat (High)', 'Sedang (Medium)', 'Ringan (Low)'];
         $chartBobotValues = [
-            $bobotData['HIGH'] ?? 0,
-            $bobotData['MEDIUM'] ?? 0,
-            $bobotData['LOW'] ?? 0
+            $bobotData['BERAT'] ?? 0,
+            $bobotData['SEDANG'] ?? 0,
+            $bobotData['RINGAN'] ?? 0
         ];
 
-        // --- GANTT CHART (Tetap sama) ---
-        $timelineRaw = WorkOrderGeneralAffair::whereNotNull('target_completion_date')
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
-
+        // Chart 5: GANTT CHART
         $ganttLabels = [];
         $ganttData = [];
         $ganttColors = [];
+        $ganttRawData = [];
 
-        foreach ($timelineRaw as $ticket) {
-            $loc = $ticket->plant; // Lokasi
-            $ganttLabels[] = $ticket->ticket_num . " (" . $loc . ")";
+        foreach ($workOrders as $wo) {
+            $deptCode = $wo->department ?? '-';
+            $ganttLabels[] = "[" . $deptCode . "] " . $wo->ticket_num;
 
-            $start = $ticket->created_at->format('Y-m-d');
-            $end = $ticket->target_completion_date ?? date('Y-m-d');
-            if ($end < $start) $end = $start;
+            // Format Tanggal
+            $start = $wo->created_at ? Carbon::parse($wo->created_at)->format('Y-m-d') : date('Y-m-d');
+
+            if ($wo->status == 'completed' && $wo->actual_completion_date) {
+                $endRaw = $wo->actual_completion_date;
+            } else {
+                $endRaw = $wo->target_completion_date ?? date('Y-m-d');
+            }
+            $end = Carbon::parse($endRaw)->format('Y-m-d');
+
+            // VALIDASI VISUALISASI GRAFIK
+            if ($end < $start) {
+                $end = $start; // Cegah error tanggal minus
+            }
+            if ($end == $start) {
+                // TRIK: Jika mulai & selesai di hari yang sama, tambah 1 hari agar grafik terlihat (muncul balok pendek)
+                $end = Carbon::parse($end)->addDay()->format('Y-m-d');
+            }
 
             $ganttData[] = [$start, $end];
 
-            if ($ticket->category == 'HIGH') $ganttColors[] = 'rgba(239, 68, 68, 0.7)';
-            elseif ($ticket->category == 'MEDIUM') $ganttColors[] = 'rgba(245, 158, 11, 0.7)';
-            else $ganttColors[] = 'rgba(34, 197, 94, 0.7)';
+            // LOGIKA WARNA (ABU-ABU JIKA SELESAI)
+            if ($wo->status == 'completed') {
+                $ganttColors[] = '#94a3b8'; // Abu-abu
+            } else {
+                $ganttColors[] = match ($wo->category) {
+                    'BERAT' => '#ef4444',
+                    'SEDANG' => '#f59e0b',
+                    default => '#22c55e',
+                };
+            }
+
+            // Data Pelengkap untuk Tooltip
+            $ganttRawData[] = [
+                'dept' => $wo->department ?? 'General',
+                'loc' => $wo->plant ?? '-',
+                'status' => $wo->status // <--- Pastikan ini ada agar ceklis muncul
+            ];
         }
 
         return view('Division.GeneralAffair.Dashboard', compact(
@@ -181,20 +227,23 @@ class GeneralAffairController extends Controller
             'chartBobotValues',
             'ganttLabels',
             'ganttData',
-            'ganttColors'
+            'ganttColors',
+            'ganttRawData',
+            'workOrders'
         ));
     }
-    //halaman form
+
+    // --- 4. FORM CREATE ---
     public function create()
     {
         $plants = Plant::all();
         $workOrders = WorkOrderGeneralAffair::with('user')->latest()->paginate(10);
         return view('general-affair.index', compact('workOrders', 'plants'));
     }
-    //validasi plant atau department
+
+    // --- 5. STORE DATA ---
     public function store(Request $request)
     {
-        // dd($request->all());
         $request->validate([
             'plant_id' => 'required',
             'department' => 'required',
@@ -237,6 +286,7 @@ class GeneralAffairController extends Controller
         return redirect()->route('ga.index')->with('success', 'Permintaan berhasil dibuat!');
     }
 
+    // --- 6. UPDATE STATUS ---
     public function updateStatus(Request $request, $id)
     {
         if (!in_array(auth()->user()->role, ['ga.admin'])) {
@@ -245,6 +295,7 @@ class GeneralAffairController extends Controller
         $user = auth()->user();
         $ticket = WorkOrderGeneralAffair::findOrFail($id);
         $oldStatus = $ticket->status;
+
         if ($ticket->status == 'pending') {
             if ($request->action == 'decline') {
                 $ticket->status = 'cancelled';
@@ -282,9 +333,9 @@ class GeneralAffairController extends Controller
                 return redirect()->route('ga.index')->with('success', 'Permintaan berhasil diterima dan akan di proses.');
             }
         }
-        $request->validate([
-            'status' => 'required',
-        ]);
+
+        $request->validate(['status' => 'required']);
+
         $ticket->status = $request->status;
         if ($request->status === 'completed') {
             $ticket->actual_completion_date = now()->toDateString();
@@ -306,11 +357,11 @@ class GeneralAffairController extends Controller
         return redirect()->route('ga.index')->with('success', 'Status tiket berhasil diperbarui!');
     }
 
+    // --- 7. EXPORT EXCEL ---
     public function export(Request $request)
     {
         // 1. LOGIKA QUERY
         if ($request->filled('selected_ids') && $request->selected_ids != '') {
-            // Ambil input, jika ada duplikat ambil yang terakhir atau unik
             $idsRaw = is_array($request->selected_ids) ? end($request->selected_ids) : $request->selected_ids;
             $ids = explode(',', $idsRaw);
 
@@ -318,75 +369,18 @@ class GeneralAffairController extends Controller
                 ->whereIn('id', $ids)
                 ->latest();
         } else {
-            // Gunakan logika filter yang sama dengan index
+            // Gunakan logika filter dari index
             $query = $this->buildQuery($request);
-            $query->with('user'); // Pastikan relation user di-load
+            $query->with('user');
         }
 
-        $filename = 'request-orders-' . date('Y-m-d-H-i') . '.csv';
+        // 2. EKSEKUSI DATA
+        $data = $query->get();
 
-        $headers = [
-            "Content-type"        => "text/csv",
-            "Content-Disposition" => "attachment; filename=$filename",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
-        ];
+        // 3. GENERATE NAMA FILE
+        $filename = 'Laporan-GA-' . date('d-m-Y-H-i') . '.xlsx';
 
-        return response()->stream(function () use ($query) {
-            $file = fopen('php://output', 'w');
-
-            // --- PERBAIKAN UTAMA DISINI ---
-            // Bersihkan output buffer agar file tidak corrupt
-            if (ob_get_level()) {
-                ob_end_clean();
-            }
-
-            // Tambahkan BOM agar Excel bisa baca karakter khusus (UTF-8)
-            fputs($file, "\xEF\xBB\xBF");
-            // ------------------------------
-
-            // Header Kolom CSV
-            fputcsv($file, [
-                'ID Tiket',
-                'Pemohon',
-                'Divisi Pemohon',
-                'Departemen',
-                'Plant',
-                'Parameter Permintaan',
-                'Status',
-                'Status Permintaan',
-                'Tanggal Target',
-                'Tanggal Selesai',
-                'Tanggal Dibuat'
-            ]);
-
-            // Gunakan chunk agar memory tidak habis jika data ribuan
-            $query->chunk(100, function ($tickets) use ($file) {
-                foreach ($tickets as $ticket) {
-
-                    // Handle jika user terhapus
-                    $user = $ticket->user;
-                    $namaPemohon = $user ? $user->name : ($ticket->requester_name ?? '-');
-                    $divisiPemohon = $user ? ($user->divisi ?? '-') : '-'; // Pastikan kolom 'divisi' ada di tabel users
-
-                    fputcsv($file, [
-                        $ticket->ticket_num,
-                        $namaPemohon,
-                        $divisiPemohon,
-                        $ticket->department,
-                        $ticket->plant,
-                        $ticket->parameter_permintaan ?? $ticket->category,
-                        ucfirst($ticket->status),
-                        $ticket->status_permintaan,
-                        $ticket->target_completion_date,
-                        $ticket->actual_completion_date,
-                        $ticket->created_at->format('Y-m-d'),
-                    ]);
-                }
-            });
-
-            fclose($file);
-        }, 200, $headers);
+        // 4. DOWNLOAD EXCEL
+        return Excel::download(new WorkOrderExport($data), $filename);
     }
 }

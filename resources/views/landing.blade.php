@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>JEMBO Work Management</title>
-
+    <link rel="icon" href="{{ asset('logo.png') }}" type="image/png">
     {{-- 1. Load Font Google (Inter) agar terlihat modern --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
