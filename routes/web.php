@@ -3,6 +3,8 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Engineering\WorkOrderEngineeringController;
 use App\Http\Controllers\GeneralAffair\GeneralAffairController;
+use App\Http\Controllers\Facilities\FacilitiesController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -43,7 +45,7 @@ Route::middleware('auth')->group(function () {
         ->name('engineering.wo.index');
 
     // --- 3. ROUTE CRUD (STORE & UPDATE) ---
-    // PENTING: Tambahkan ini karena form di Blade Anda memanggil 'work-orders.store'
+
     Route::post('engineering/work-orders', [WorkOrderEngineeringController::class, 'store'])
         ->name('work-orders.store');
 
@@ -68,6 +70,25 @@ Route::middleware('auth')->group(function () {
         //Update status (admin edit) -> route(ga.updateStatus)
         //URL: /general-affair/{id}/update-status
         Route::put('/{id}/update-status', [GeneralAffairController::class, 'updateStatus'])->name('update-status');
+    });
+
+    Route::prefix('fh')->name('fh.')->group(function () {
+        //index(tabel utama) -> route('fh.index')
+        //URL: /facilities
+        Route::get('/dashboard', [FacilitiesController::class, 'dashboard'])->name('dashboard');
+        Route::get('/', [FacilitiesController::class, 'index'])->name('index');
+
+        //Export -> route('fh.export')
+        //URL: /facilities/export
+        Route::get('/export', [FacilitiesController::class, 'export'])->name('export');
+
+        //store simpan data -> rote(fh.store)
+        //URL: /facilities/store
+        Route::post('/store', [FacilitiesController::class, 'store'])->name('store');
+
+        //Update status (admin edit) -> route(fh.updateStatus)
+        //URL: /facilities/{id}/update-status
+        Route::put('/{id}/update-status', [FacilitiesController::class, 'updateStatus'])->name('update-status');
     });
 });
 

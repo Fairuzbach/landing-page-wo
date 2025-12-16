@@ -4,7 +4,6 @@
         <div class="flex justify-between items-center -my-2">
             <h2
                 class="font-black text-2xl text-slate-900 leading-tight uppercase tracking-wider flex items-center gap-4">
-                {{-- Aksen Balok Kuning Khas CAT --}}
                 <span class="w-4 h-8 bg-yellow-400 inline-block shadow-sm"></span>
                 {{ __('General Affair Request Order') }}
             </h2>
@@ -39,15 +38,23 @@
             'QC Lab': 'QR',
             'QC LV': 'QR',
             'QC MV': 'QR',
-            'Plant SC': 'SC',
-            'Plant RM1': 'RM',
-            'Plant RM2': 'RM',
-            'Plant RM5': 'RM',
+            'QC FO': 'QR',
+            'RM 1': 'SC',
+            'RM 2': 'SC',
+            'RM 3': 'SC',
+            'RM 5': 'SC',
+            'RM Office': 'SC',
             'Workshop Electric': 'MT',
             'Konstruksi': 'FH',
             'Plant E': 'FO',
             'Plant Tools': 'PE',
-            'Gudang Jadi': 'SS'
+            'Gudang Jadi': 'SS',
+            'GA': 'GA',
+            'FA': 'FA',
+            'IT': 'IT',
+            'HC': 'HC',
+            'Sales': 'Sales',
+            'Marketing': 'Marketing',
         },
     
         form: { plant: '', plant_name: '', department: '', category: 'RINGAN', description: '', file_name: '', parameter_permintaan: '', status_permintaan: '' },
@@ -106,7 +113,7 @@
                     this.form.plant = '';
                     this.form.plant_name = '';
                     this.form.department = '';
-                    this.form.category = 'LOW';
+                    this.form.category = 'RINGAN';
                     this.form.description = '';
                     this.form.file_name = '';
                 }
@@ -238,11 +245,6 @@
                     </div>
                 </div>
             </div>
-
-
-
-
-
             {{-- C. TABEL DATA --}}
             {{-- debug role --}}
             {{-- <div class="bg-red-200 p-2 text-red-800">
@@ -254,22 +256,24 @@
 
                     {{-- Header & Create Button --}}
                     {{-- C. FILTER & ACTIONS (Tactile Inputs) --}}
-                    <div
-                        class="bg-white shadow-lg rounded-none border-t-4 border-yellow-400 mb-8 p-6 transition-shadow hover:shadow-xl duration-500">
-                        <div class="flex flex-col lg:flex-row justify-between items-end gap-6">
+                    {{-- C. FILTER & ACTIONS (Compact & Collapsible) --}}
+                    <div class="bg-white shadow-lg rounded-none border-t-4 border-yellow-400 mb-6 transition-all duration-300"
+                        x-data="{
+                            showFilters: {{ request()->anyFilled(['category', 'status', 'parameter', 'start_date']) ? 'true' : 'false' }}
+                        }">
 
-                            {{-- Form Filter --}}
-                            {{-- Form Filter --}}
-                            <form action="{{ route('ga.index') }}" method="GET"
-                                class="w-full lg:flex-1 flex flex-col md:flex-row gap-4">
+                        {{-- FORM PEMBUNGKUS UTAMA --}}
+                        <form action="{{ route('ga.index') }}" method="GET">
 
-                                {{-- 1. Input Pencarian --}}
-                                <div class="flex-1 group">
-                                    <label
-                                        class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider group-focus-within:text-yellow-600 transition-colors">Pencarian</label>
-                                    <div class="relative">
+                            {{-- BARIS 1: PENCARIAN & TOMBOL UTAMA (Compact) --}}
+                            <div class="p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
+
+                                {{-- Kiri: Search & Filter Toggle --}}
+                                <div class="w-full md:flex-1 flex gap-2">
+                                    {{-- Input Search (Lebar Penuh) --}}
+                                    <div class="relative flex-grow group">
                                         <span
-                                            class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 group-focus-within:text-yellow-500 transition-colors">
+                                            class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 group-focus-within:text-yellow-600 transition-colors">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                                 viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -277,38 +281,101 @@
                                             </svg>
                                         </span>
                                         <input type="text" name="search" value="{{ request('search') }}"
-                                            class="block w-full pl-10 border-2 border-slate-200 bg-slate-50 rounded-sm focus:bg-white focus:border-yellow-400 focus:ring-0 text-sm font-bold text-slate-900 transition-all duration-200 placeholder-slate-400"
-                                            placeholder="Cari Tiket / Lokasi...">
+                                            class="block w-full pl-10 h-10 border-2 border-slate-200 bg-slate-50 rounded-sm focus:bg-white focus:border-yellow-400 focus:ring-0 text-sm font-bold text-slate-900 transition-all placeholder-slate-400"
+                                            placeholder="Cari No. Tiket, Pelapor, Lokasi...">
                                     </div>
+
+                                    {{-- Tombol Toggle Filter Advanced --}}
+                                    <button type="button" @click="showFilters = !showFilters"
+                                        class="h-10 px-4 bg-slate-100 border-2 border-slate-200 text-slate-600 hover:text-slate-900 hover:border-yellow-400 rounded-sm flex items-center gap-2 transition-all"
+                                        :class="showFilters ? 'bg-yellow-50 border-yellow-400 text-yellow-700' : ''">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z">
+                                            </path>
+                                        </svg>
+                                        <span class="text-xs font-bold uppercase hidden sm:inline">Filter</span>
+                                        {{-- Badge Indikator jika ada filter aktif --}}
+                                        @if (request()->anyFilled(['category', 'status', 'parameter', 'start_date']))
+                                            <span class="flex h-2 w-2 relative">
+                                                <span
+                                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                <span
+                                                    class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                            </span>
+                                        @endif
+                                    </button>
+
+                                    {{-- Tombol Submit Search --}}
+                                    <button type="submit"
+                                        class="h-10 px-6 bg-slate-900 text-white hover:bg-slate-800 rounded-sm text-sm font-black uppercase tracking-wider transition shadow-sm">
+                                        Cari
+                                    </button>
                                 </div>
 
-                                {{-- 2. Filter Bobot (BARU) --}}
-                                <div class="w-full md:w-40 group">
-                                    <label
-                                        class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider group-focus-within:text-yellow-600 transition-colors">Bobot</label>
-                                    <select name="category"
-                                        class="block w-full border-2 border-slate-200 bg-slate-50 rounded-sm focus:bg-white focus:border-yellow-400 focus:ring-0 text-sm font-bold text-slate-900 transition-all duration-200 cursor-pointer uppercase">
-                                        <option value="">SEMUA BOBOT</option>
-                                        <option value="HIGH" {{ request('category') == 'HIGH' ? 'selected' : '' }}>
-                                            BERAT</option>
-                                        <option value="MEDIUM" {{ request('category') == 'MEDIUM' ? 'selected' : '' }}>
-                                            SEDANG</option>
-                                        <option value="LOW" {{ request('category') == 'LOW' ? 'selected' : '' }}>
-                                            RINGAN</option>
-                                    </select>
-                                </div>
+                                {{-- Kanan: Action Buttons (Create/Stat) --}}
+                                {{-- Kanan: Action Buttons (Create/Stat/Export) --}}
+                                <div
+                                    class="flex gap-2 w-full md:w-auto justify-end border-l border-slate-200 pl-0 md:pl-3">
 
-                                {{-- 3. Filter Status --}}
-                                <div class="w-full md:w-40 group">
+                                    {{-- 1. TOMBOL EXCEL (Kecil & Efisien) --}}
+                                    {{-- Menggunakan request()->query() agar filter tanggal/status tetap terbawa saat export --}}
+                                    <a href="{{ route('ga.export', request()->query()) }}"
+                                        class="h-10 w-10 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-500 hover:text-green-600 hover:border-green-500 rounded-sm transition shadow-sm group"
+                                        title="Download Excel">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                            stroke-width="1.5" stroke="currentColor"
+                                            class="w-5 h-5 group-hover:scale-110 transition-transform">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                        </svg>
+                                    </a>
+
+                                    {{-- 2. TOMBOL STATISTIK (Hanya Admin) --}}
+                                    @if (auth()->user()->role === 'ga.admin')
+                                        <a href="{{ route('ga.dashboard') }}"
+                                            class="h-10 w-10 md:w-auto flex items-center justify-center gap-2 px-0 md:px-4 bg-white border-2 border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-yellow-400 rounded-sm transition group"
+                                            title="Statistik">
+                                            <svg class="w-5 h-5 group-hover:scale-110 transition-transform"
+                                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                                                </path>
+                                            </svg>
+                                            <span
+                                                class="hidden md:inline text-xs font-black uppercase">Statistik</span>
+                                        </a>
+                                    @endif
+
+                                    {{-- 3. TOMBOL BUAT TIKET --}}
+                                    <button @click="showCreateModal = true" type="button"
+                                        class="h-10 px-4 bg-yellow-400 text-slate-900 hover:bg-yellow-300 rounded-sm text-sm font-black uppercase tracking-wider shadow-md flex items-center gap-2 hover:-translate-y-0.5 transition">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <span class="hidden sm:inline">Buat Tiket</span>
+                                        <span class="sm:hidden">Baru</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {{-- BARIS 2: FILTER LANJUTAN (Collapsible) --}}
+                            <div x-show="showFilters" x-collapse
+                                class="px-4 pb-4 pt-2 bg-slate-50 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+
+                                {{-- 1. Filter Status --}}
+                                <div>
                                     <label
-                                        class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider group-focus-within:text-yellow-600 transition-colors">Status</label>
+                                        class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Status</label>
                                     <select name="status"
-                                        class="block w-full border-2 border-slate-200 bg-slate-50 rounded-sm focus:bg-white focus:border-yellow-400 focus:ring-0 text-sm font-bold text-slate-900 transition-all duration-200 cursor-pointer uppercase">
-                                        <option value="">SEMUA STATUS</option>
-                                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>
-                                            PENDING</option>
+                                        class="w-full h-9 text-xs font-bold border-slate-300 focus:border-yellow-400 focus:ring-0 rounded-sm bg-white uppercase">
+                                        <option value="">Semua Status</option>
+                                        <option value="pending"
+                                            {{ request('status') == 'pending' ? 'selected' : '' }}>PENDING</option>
                                         <option value="in_progress"
-                                            {{ request('status') == 'in_progress' ? 'selected' : '' }}>IN PROGRESS
+                                            {{ request('status') == 'in_progress' ? 'selected' : '' }}>PROGRESS
                                         </option>
                                         <option value="completed"
                                             {{ request('status') == 'completed' ? 'selected' : '' }}>COMPLETED</option>
@@ -316,112 +383,124 @@
                                             {{ request('status') == 'cancelled' ? 'selected' : '' }}>CANCELLED</option>
                                     </select>
                                 </div>
-                                {{-- 4. FILTER RENTANG TANGGAL (FLATPICKR) --}}
-                                <div class="w-full md:w-64 group">
+
+                                {{-- 2. Filter Parameter --}}
+                                <div>
                                     <label
-                                        class="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider group-focus-within:text-yellow-600 transition-colors">
-                                        Rentang Tanggal
-                                    </label>
+                                        class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Parameter</label>
+                                    <select name="parameter"
+                                        class="w-full h-9 text-xs font-bold border-slate-300 focus:border-yellow-400 focus:ring-0 rounded-sm bg-white uppercase">
+                                        <option value="">Semua Parameter</option>
+                                        <option value="KEBERSIHAN"
+                                            {{ request('parameter') == 'KEBERSIHAN' ? 'selected' : '' }}>KEBERSIHAN
+                                        </option>
+                                        <option value="PEMELIHARAAN"
+                                            {{ request('parameter') == 'PEMELIHARAAN' ? 'selected' : '' }}>PEMELIHARAAN
+                                        </option>
+                                        <option value="PERBAIKAN"
+                                            {{ request('parameter') == 'PERBAIKAN' ? 'selected' : '' }}>PERBAIKAN
+                                        </option>
+                                        <option value="PEMBUATAN BARU"
+                                            {{ request('parameter') == 'PEMBUATAN BARU' ? 'selected' : '' }}>PEMBUATAN
+                                            BARU</option>
+                                        <option value="PERIZINAN"
+                                            {{ request('parameter') == 'PERIZINAN' ? 'selected' : '' }}>PERIZINAN
+                                        </option>
+                                        <option value="RESERVASI"
+                                            {{ request('parameter') == 'RESERVASI' ? 'selected' : '' }}>RESERVASI
+                                        </option>
+                                    </select>
+                                </div>
+
+                                {{-- 3. Filter Bobot --}}
+                                <div>
+                                    <label
+                                        class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Bobot</label>
+                                    <select name="category"
+                                        class="w-full h-9 text-xs font-bold border-slate-300 focus:border-yellow-400 focus:ring-0 rounded-sm bg-white uppercase">
+                                        <option value="">Semua Bobot</option>
+                                        <option value="BERAT" {{ request('category') == 'BERAT' ? 'selected' : '' }}>
+                                            BERAT</option>
+                                        <option value="SEDANG"
+                                            {{ request('category') == 'SEDANG' ? 'selected' : '' }}>SEDANG</option>
+                                        <option value="RINGAN"
+                                            {{ request('category') == 'RINGAN' ? 'selected' : '' }}>
+                                            RINGAN</option>
+                                    </select>
+                                </div>
+
+                                {{-- 4. Filter Tanggal --}}
+                                <div class="md:col-span-2">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Rentang
+                                        Tanggal</label>
                                     <div class="relative">
+                                        <input type="text" id="date_range_picker"
+                                            class="w-full h-9 pl-8 text-xs font-bold border-slate-300 focus:border-yellow-400 focus:ring-0 rounded-sm bg-white placeholder-slate-400"
+                                            placeholder="Pilih Tanggal...">
                                         <div
-                                            class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-yellow-500 transition-colors">
-                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                            class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-slate-400">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                                                 stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
                                         </div>
-
-                                        <input type="text" id="date_range_picker"
-                                            class="block w-full pl-10 border-2 border-slate-200 bg-slate-50 rounded-sm focus:bg-white focus:border-yellow-400 focus:ring-0 text-sm font-bold text-slate-900 transition-all duration-200 placeholder-slate-400"
-                                            placeholder="PILIH TANGGAL...">
-
+                                        {{-- Hidden inputs untuk kirim ke controller --}}
                                         <input type="hidden" name="start_date" id="start_date"
                                             value="{{ request('start_date') }}">
                                         <input type="hidden" name="end_date" id="end_date"
                                             value="{{ request('end_date') }}">
                                     </div>
                                 </div>
-                                {{-- Tombol Aksi --}}
-                                <div class="flex gap-2 items-end">
+
+                                {{-- 5. Tombol Reset Filter --}}
+                                <div class="md:col-span-5 flex justify-end pt-2 border-t border-slate-200 mt-2">
+                                    <a href="{{ route('ga.index') }}"
+                                        class="text-xs font-bold text-red-500 hover:text-red-700 flex items-center gap-1 uppercase tracking-wide">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                        Reset Semua Filter
+                                    </a>
+                                </div>
+                            </div>
+                        </form>
+
+                        {{-- BARIS 3: EXPORT BAR (Muncul jika ada item terpilih) --}}
+                        <div class="bg-yellow-50 px-4 py-2 border-t border-yellow-200 flex justify-between items-center"
+                            x-show="selected.length > 0" x-transition.opacity>
+                            <div
+                                class="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                <span class="flex h-3 w-3 relative">
+                                    <span
+                                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                                </span>
+                                <span x-text="selected.length"></span> Item Terpilih
+                            </div>
+
+                            <div class="flex gap-4">
+                                <form id="exportForm" action="{{ route('ga.export') }}" method="GET"
+                                    class="flex items-center">
+                                    <input type="hidden" name="selected_ids" :value="selected.join(',')">
                                     <button type="submit"
-                                        class="bg-slate-900 text-white hover:bg-slate-800 hover:shadow-lg px-6 py-2.5 rounded-sm text-sm font-black uppercase tracking-wider transition-all duration-200 active:scale-95 flex items-center gap-2 h-[42px]">
-                                        {{-- Set height fix --}}
+                                        class="group text-xs font-bold text-slate-800 hover:text-blue-700 uppercase flex items-center gap-1 transition-colors">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z">
+                                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4">
                                             </path>
                                         </svg>
-                                        Filter
+                                        <span
+                                            class="group-hover:underline decoration-blue-400 underline-offset-4">Download
+                                            Excel</span>
                                     </button>
-                                    <a href="{{ route('ga.index') }}"
-                                        class="bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-800 px-4 py-2.5 rounded-sm text-sm font-bold uppercase tracking-wider transition-all duration-200 active:scale-95 text-center flex items-center justify-center h-[42px]">
-                                        Reset
-                                    </a>
-                                </div>
-                            </form>
-
-                            {{-- Action Buttons --}}
-                            <div class="flex gap-3 w-full lg:w-auto justify-end">
-                                @if (auth()->user()->role === 'ga.admin')
-                                    <a href="{{ route('ga.dashboard') }}"
-                                        class="group bg-white border-2 border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-yellow-400 px-5 py-2.5 rounded-sm text-sm font-black uppercase tracking-wider transition-all duration-200 flex items-center gap-2 active:scale-95 shadow-sm hover:shadow-md">
-                                        <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none"
-                                            stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
-                                            </path>
-                                        </svg>
-                                        Statistik
-                                    </a>
-                                @endif
-
-                                <button @click="showCreateModal = true" type="button"
-                                    class="group bg-yellow-400 text-slate-900 hover:bg-yellow-300 px-6 py-2.5 rounded-sm text-sm font-black uppercase tracking-wider shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 active:scale-95">
-                                    <svg class="w-5 h-5 transition-transform group-hover:rotate-90" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                    </svg>
-                                    Buat Tiket
-                                </button>
+                                </form>
+                                <button type="button" @click="clearSelection()"
+                                    class="text-xs font-bold text-slate-400 hover:text-red-500 uppercase transition-colors">Batal</button>
                             </div>
-                        </div>
-
-                        {{-- Export Bar (Interactive Link) --}}
-                        <div class="flex justify-end mt-4 pt-4 border-t border-slate-100 gap-6" x-show="true">
-                            <form id="exportForm" action="{{ route('ga.export') }}" method="GET"
-                                class="flex items-center gap-4">
-                                <input type="hidden" name="selected_ids" :value="selected.join(',')">
-
-                                <div class="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider transition-opacity duration-300"
-                                    :class="selected.length > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'">
-                                    <span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
-                                    <span x-text="selected.length"></span> Item Dipilih
-                                </div>
-
-                                <button type="submit"
-                                    class="group text-xs font-bold text-slate-600 hover:text-slate-900 uppercase flex items-center gap-1 transition-colors">
-                                    <span
-                                        class="group-hover:underline decoration-yellow-400 underline-offset-4">Download
-                                        Data (XSLX)</span>
-                                    <svg class="w-4 h-4 text-slate-400 group-hover:text-yellow-500 transition-colors"
-                                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                                    </svg>
-                                </button>
-
-                                <button type="button" x-show="selected.length > 0" @click="clearSelection()"
-                                    class="text-xs font-bold text-red-500 hover:text-red-700 uppercase transition-colors flex items-center gap-1">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M6 18L18 6M6 6l12 12"></path>
-                                    </svg>
-                                    Reset
-                                </button>
-                            </form>
                         </div>
                     </div>
 
@@ -442,6 +521,8 @@
                                     Pelapor</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                                     Lokasi / Dept</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
+                                    Parameter</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                                     Bobot</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -495,13 +576,31 @@
                                             @endif
                                         </div>
                                     </td>
+                                    <td class="px-6 py-4 text-xs font-bold text-slate-700 uppercase">
+                                        {{ $item->parameter_permintaan }}</td>
 
                                     {{-- Bobot --}}
                                     <td class="px-6 py-4 whitespace-nowrap">
+                                        @php
+                                            // Normalisasi data lama (Jika DB masih LOW, ubah tampilan jadi RINGAN)
+                                            $catDisplay = match ($item->category) {
+                                                'HIGH' => 'BERAT',
+                                                'MEDIUM' => 'SEDANG',
+                                                'LOW' => 'RINGAN',
+                                                default
+                                                    => $item->category, // Jika sudah RINGAN/SEDANG/BERAT, tampilkan apa adanya
+                                            };
+
+                                            // Warna Badge
+                                            $catColor = match ($catDisplay) {
+                                                'BERAT' => 'bg-red-100 text-red-800 border-red-200',
+                                                'SEDANG' => 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                default => 'bg-green-100 text-green-800 border-green-200', // Ringan
+                                            };
+                                        @endphp
                                         <span
-                                            class="px-2 py-1 text-xs font-bold rounded-sm border 
-                                            {{ $item->category == 'HIGH' ? 'bg-red-100 text-red-800 border-red-200' : ($item->category == 'MEDIUM' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-green-100 text-green-800 border-green-200') }}">
-                                            {{ $item->category == 'HIGH' ? 'BERAT' : ($item->category == 'MEDIUM' ? 'SEDANG' : 'RINGAN') }}
+                                            class="px-2 py-1 text-xs font-bold rounded-sm border {{ $catColor }}">
+                                            {{ $catDisplay }}
                                         </span>
                                     </td>
 
@@ -591,6 +690,7 @@
                                     @csrf
                                     <div class="p-6 space-y-6">
                                         {{-- Row 1 --}}
+
                                         <div class="grid grid-cols-2 gap-4">
                                             <div><label
                                                     class="text-xs font-bold text-slate-700 uppercase mb-1">Tanggal</label><input
@@ -603,7 +703,16 @@
                                                     class="w-full bg-slate-100 border-2 border-slate-200 font-mono text-sm rounded-sm font-bold text-slate-600">
                                             </div>
                                         </div>
-
+                                        <div class="bg-yellow-50 p-4 mb-4 rounded-sm border-l-4 border-yellow-400">
+                                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
+                                                Nama Pelapor / Requestor <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="text" name="manual_requester_name"
+                                                class="w-full border-2 border-slate-300 focus:border-slate-900 focus:ring-0 rounded-sm text-sm font-bold placeholder-slate-400"
+                                                placeholder="Masukkan Nama Lengkap Anda..." required>
+                                            <p class="text-[10px] text-slate-500 mt-1">*Wajib diisi sesuai nama
+                                                pengaju.</p>
+                                        </div>
                                         {{-- Row 2: LOKASI & DEPT --}}
                                         <div class="bg-yellow-50 p-5 rounded-sm border-2 border-yellow-200">
                                             <label
@@ -631,6 +740,8 @@
                                                         class="w-full border-2 border-slate-300 focus:border-slate-900 focus:ring-0 rounded-sm text-sm font-semibold bg-slate-50"
                                                         required>
                                                         <option value="">-- PILIH DEPT --</option>
+                                                        <option value="Low Voltage">Low Voltage</option>
+                                                        <option value="Medium Voltage">Medium Voltage</option>
                                                         <option value="IT">IT</option>
                                                         <option value="FH">FH</option>
                                                         <option value="PE">PE</option>
@@ -639,10 +750,12 @@
                                                         <option value="FO">FO</option>
                                                         <option value="SS">SS</option>
                                                         <option value="SC">SC</option>
-                                                        <option value="Low Voltage">Low Voltage</option>
-                                                        <option value="Medium Voltage">Medium Voltage</option>
                                                         <option value="RM">RM</option>
                                                         <option value="QR">QR</option>
+                                                        <option value="FA">FA</option>
+                                                        <option value="HC">HC</option>
+                                                        <option value="Sales">Sales</option>
+                                                        <option value="Marketing">Marketing</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -655,9 +768,9 @@
                                                     Pekerjaan</label>
                                                 <select name="category" x-model="form.category"
                                                     class="w-full border-2 border-slate-300 focus:border-slate-900 focus:ring-0 rounded-sm text-sm">
-                                                    <option value="LOW">Ringan</option>
-                                                    <option value="MEDIUM">Sedang</option>
-                                                    <option value="HIGH">Berat</option>
+                                                    <option value="RINGAN">Ringan</option>
+                                                    <option value="SEDANG">Sedang</option>
+                                                    <option value="BERAT">Berat</option>
                                                 </select>
                                             </div>
                                             <div>
@@ -673,6 +786,8 @@
                                                     <option value="PEMELIHARAAN">Pemeliharaan</option>
                                                     <option value="PERBAIKAN">Perbaikan</option>
                                                     <option value="PEMBUATAN BARU">Pembuatan Baru</option>
+                                                    <option value="PERIZINAN">Perizinan</option>
+                                                    <option value="RESERVASI">Reservasi</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -697,9 +812,9 @@
                                         </div>
 
                                         <div>
-                                            <label class="text-xs font-bold text-slate-700 uppercase mb-1">Foto Bukti
-                                                <span class="text-red-500">*</span></label>
-                                            <input type="file" name="photo" @change="handleFile" required
+                                            <label class="text-xs font-bold text-slate-700 uppercase mb-1">Foto
+                                                Bukti (Opsional)</label>
+                                            <input type="file" name="photo" @change="handleFile"
                                                 class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-xs file:font-black file:uppercase file:bg-slate-900 file:text-white hover:file:bg-slate-700 cursor-pointer">
                                         </div>
                                     </div>
@@ -739,7 +854,6 @@
                                 <div class="bg-slate-100 p-4 mb-6 border border-slate-200 text-sm space-y-2">
                                     <p>
                                         <span class="font-bold text-slate-500 uppercase text-xs block">Lokasi:</span>
-                                        {{-- FIX: Pastikan x-data sudah ada plant_name seperti saran sebelumnya --}}
                                         <span class="font-bold text-slate-900" x-text="form.plant_name"></span>
                                     </p>
                                     <p>
@@ -822,6 +936,11 @@
                                                         class="text-xs font-bold text-slate-500 uppercase">Bobot</span>
                                                     <p class="font-bold text-slate-800" x-text="ticket.category"></p>
                                                 </div>
+                                                <div><span class="text-xs font-bold text-slate-500 uppercase">Parameter
+                                                        Permintaan</span>
+                                                    <p class="font-bold text-slate-800"
+                                                        x-text="ticket.parameter_permintaan"></p>
+                                                </div>
                                                 <div><span
                                                         class="text-xs font-bold text-slate-500 uppercase">Target</span>
                                                     <p class="font-bold text-slate-800"
@@ -837,9 +956,8 @@
                                                     x-text="ticket.description"></p>
                                             </div>
 
-                                            {{-- ========================================== --}}
-                                            {{-- BAGIAN FOTO BUKTI (BARU DITAMBAHKAN)       --}}
-                                            {{-- ========================================== --}}
+                                            {{-- BAGIAN FOTO BUKTI      --}}
+
                                             <template x-if="ticket.photo_path">
                                                 <div class="bg-slate-50 p-4 border border-slate-200 mb-4">
                                                     <div class="flex justify-between items-center mb-2">
@@ -863,8 +981,50 @@
                                                     </div>
                                                 </div>
                                             </template>
-                                            {{-- ========================================== --}}
+                                            <template x-if="ticket.photo_completed_path">
+                                                <div
+                                                    class="bg-green-50 p-4 border border-green-200 h-full flex flex-col">
+                                                    <div class="flex justify-between items-center mb-2">
+                                                        <span
+                                                            class="text-xs font-bold text-green-700 uppercase badge bg-green-200 px-2 py-1 rounded-sm">FOTO
+                                                            AFTER (HASIL)</span>
+                                                        <a :href="'/storage/' + ticket.photo_completed_path"
+                                                            target="_blank"
+                                                            class="text-[10px] font-bold text-blue-600 hover:underline uppercase flex items-center gap-1">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor"
+                                                                viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                                    stroke-width="2"
+                                                                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
+                                                                </path>
+                                                            </svg>
+                                                            Zoom
+                                                        </a>
+                                                    </div>
+                                                    <div
+                                                        class="bg-white p-2 border border-green-300 rounded-sm flex-grow flex items-center justify-center">
+                                                        <img :src="'/storage/' + ticket.photo_completed_path"
+                                                            alt="Bukti Selesai"
+                                                            class="max-h-48 w-full object-contain">
+                                                    </div>
+                                                </div>
+                                            </template>
 
+                                            {{-- Placeholder jika belum ada foto after --}}
+                                            <template x-if="!ticket.photo_completed_path">
+                                                <div
+                                                    class="bg-slate-50 p-4 border border-dashed border-slate-300 h-full flex flex-col items-center justify-center text-slate-400 min-h-[200px]">
+                                                    <svg class="w-12 h-12 mb-2 opacity-20" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                                        </path>
+                                                    </svg>
+                                                    <span class="text-xs font-bold uppercase">Foto After Belum
+                                                        Tersedia</span>
+                                                </div>
+                                            </template>
                                             {{-- History Log --}}
                                             <div class="border-t border-slate-200 pt-4">
                                                 <h4 class="font-bold text-slate-900 uppercase mb-3 tracking-wide">
@@ -895,97 +1055,63 @@
 
                 {{-- MODAL 4: EDIT TICKET (ADMIN UPDATE) --}}
                 {{-- MODAL 4: EDIT / APPROVAL TICKET --}}
+                {{-- MODAL 4: EDIT / APPROVAL TICKET --}}
                 <template x-teleport="body">
                     <div x-show="showEditModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto">
-                        {{-- BACKDROP: Opacity 75 agar tidak terlalu gelap pekat --}}
                         <div x-show="showEditModal"
                             class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity"
-                            @click="showEditModal = false">
-                        </div>
-
-                        {{-- MODAL WRAPPER --}}
+                            @click="showEditModal = false"></div>
                         <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0 relative z-10"
                             @click.self="showEditModal = false">
                             <div x-show="showEditModal"
                                 class="relative transform overflow-hidden rounded-none bg-white text-left shadow-2xl border-t-8 border-yellow-400 transition-all sm:my-8 sm:w-full sm:max-w-lg">
-
-                                {{-- HEADER (Hitam) --}}
                                 <div class="bg-slate-900 px-6 py-4 flex justify-between items-center">
                                     <h3
                                         class="text-lg font-black text-white uppercase tracking-wider flex items-center gap-2">
-                                        <span class="text-yellow-400">///</span>
-                                        <span
+                                        <span class="text-yellow-400">///</span><span
                                             x-text="editForm.status == 'pending' ? 'Approval Tiket' : 'Update Status'"></span>
                                     </h3>
                                     <div class="text-xs font-mono text-slate-400 bg-slate-800 px-2 py-1 rounded"
                                         x-text="editForm.ticket_num"></div>
                                 </div>
-
-                                {{-- FORM CONTENT --}}
                                 <form x-ref="editFormHtml" :action="'/ga/' + editForm.id + '/update-status'"
-                                    method="POST">
-                                    @csrf
-                                    @method('PUT')
-
+                                    method="POST" enctype="multipart/form-data">
+                                    @csrf @method('PUT')
                                     <div class="px-6 py-6 space-y-5">
-
-                                        {{-- KONDISI 1: PENDING (APPROVAL) --}}
+                                        <div class="bg-yellow-50 p-3 rounded-sm border-l-4 border-yellow-400">
+                                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
+                                                Nama Admin / PIC <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="text" name="admin_name"
+                                                class="w-full border-2 border-slate-300 focus:border-slate-900 focus:ring-0 rounded-sm text-sm font-bold placeholder-slate-400"
+                                                placeholder="Nama Anda..." required>
+                                        </div>
+                                        {{-- LOGIKA PENDING (TETAP SAMA) --}}
                                         <template x-if="editForm.status == 'pending'">
                                             <div x-data="{ decision: null }">
-
-                                                {{-- A. PILIHAN AWAL (Accept/Decline) --}}
                                                 <div x-show="!decision" class="flex gap-4 justify-center py-2">
-                                                    {{-- Tombol ACCEPT (Kuning Industrial) --}}
                                                     <button type="button" @click="decision = 'accept'"
-                                                        class="flex-1 bg-yellow-400 text-slate-900 hover:bg-yellow-300 py-6 px-4 rounded-sm font-black uppercase tracking-wider flex flex-col items-center gap-3 shadow-sm transition hover:-translate-y-1 border-2 border-transparent hover:border-yellow-500">
-                                                        <svg class="w-8 h-8" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                                        </svg>
-                                                        Accept (Terima)
-                                                    </button>
-
-                                                    {{-- Tombol DECLINE (Hitam/Merah) --}}
+                                                        class="flex-1 bg-yellow-400 text-slate-900 hover:bg-yellow-300 py-6 px-4 rounded-sm font-black uppercase tracking-wider flex flex-col items-center gap-3 shadow-sm transition hover:-translate-y-1 border-2 border-transparent hover:border-yellow-500">Accept</button>
                                                     <button type="button" @click="decision = 'decline'"
-                                                        class="flex-1 bg-slate-100 text-slate-600 hover:bg-slate-200 py-6 px-4 rounded-sm font-black uppercase tracking-wider flex flex-col items-center gap-3 border-2 border-slate-300 transition hover:text-red-600 hover:border-red-400">
-                                                        <svg class="w-8 h-8" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                                        </svg>
-                                                        Decline (Tolak)
-                                                    </button>
-
+                                                        class="flex-1 bg-slate-100 text-slate-600 hover:bg-slate-200 py-6 px-4 rounded-sm font-black uppercase tracking-wider flex flex-col items-center gap-3 border-2 border-slate-300 transition hover:text-red-600 hover:border-red-400">Decline</button>
                                                 </div>
-
-                                                {{-- B. JIKA MEMILIH DECLINE --}}
                                                 <div x-show="decision == 'decline'"
                                                     class="bg-red-50 p-5 rounded-sm border-l-4 border-red-500">
                                                     <h4 class="font-bold text-red-800 uppercase mb-2 text-sm">
                                                         Konfirmasi Penolakan</h4>
-                                                    <p class="text-sm text-red-600 mb-4 font-medium">Tiket akan
-                                                        dibatalkan secara permanen.</p>
                                                     <div class="flex gap-2">
-                                                        <button type="submit" @click="confirmCancel()"
-                                                            name="action" value="decline"
-                                                            class="bg-red-600 text-white px-4 py-2 rounded-sm hover:bg-red-700 text-sm font-bold uppercase tracking-wide shadow-sm">
-                                                            Ya, Tolak Tiket
-                                                        </button>
+                                                        <button type="submit" name="action" value="decline"
+                                                            class="bg-red-600 text-white px-4 py-2 rounded-sm hover:bg-red-700 text-sm font-bold uppercase tracking-wide shadow-sm">Ya,
+                                                            Tolak Tiket</button>
                                                         <button type="button" @click="decision = null"
-                                                            class="bg-white border-2 border-slate-300 text-slate-700 px-4 py-2 rounded-sm hover:bg-slate-100 text-sm font-bold uppercase tracking-wide">
-                                                            Batal
-                                                        </button>
+                                                            class="bg-white border-2 border-slate-300 text-slate-700 px-4 py-2 rounded-sm hover:bg-slate-100 text-sm font-bold uppercase tracking-wide">Batal</button>
                                                     </div>
                                                 </div>
-
-                                                {{-- C. JIKA MEMILIH ACCEPT --}}
                                                 <div x-show="decision == 'accept'"
                                                     class="space-y-4 bg-yellow-50 p-5 rounded-sm border-l-4 border-yellow-400">
                                                     <h4
                                                         class="font-black text-slate-900 uppercase border-b border-yellow-200 pb-2 mb-3">
                                                         Konfirmasi Pengerjaan</h4>
-
                                                     <div>
                                                         <label
                                                             class="block text-xs font-bold text-slate-600 uppercase mb-1">Bobot
@@ -998,7 +1124,6 @@
                                                             <option value="BERAT">Berat</option>
                                                         </select>
                                                     </div>
-
                                                     <div>
                                                         <label
                                                             class="block text-xs font-bold text-slate-600 uppercase mb-1">Target
@@ -1008,16 +1133,12 @@
                                                             class="w-full border-2 border-slate-300 focus:border-slate-900 focus:ring-0 rounded-sm date-picker text-sm font-semibold"
                                                             placeholder="Pilih Tanggal..." x-init="flatpickr($el, { dateFormat: 'Y-m-d', minDate: 'today' })">
                                                     </div>
-
                                                     <div class="flex gap-2 mt-4 pt-2 border-t border-yellow-200">
                                                         <button type="submit" name="action" value="accept"
-                                                            class="bg-slate-900 text-white px-5 py-2.5 rounded-sm hover:bg-slate-800 text-sm font-black uppercase tracking-wider shadow-md transition">
-                                                            Simpan & Proses
-                                                        </button>
+                                                            class="bg-slate-900 text-white px-5 py-2.5 rounded-sm hover:bg-slate-800 text-sm font-black uppercase tracking-wider shadow-md transition">Simpan
+                                                            & Proses</button>
                                                         <button type="button" @click="decision = null"
-                                                            class="bg-white border-2 border-slate-300 text-slate-700 px-4 py-2.5 rounded-sm hover:bg-slate-50 text-sm font-bold uppercase tracking-wide transition">
-                                                            Kembali
-                                                        </button>
+                                                            class="bg-white border-2 border-slate-300 text-slate-700 px-4 py-2.5 rounded-sm hover:bg-slate-50 text-sm font-bold uppercase tracking-wide transition">Kembali</button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1038,6 +1159,44 @@
                                                     </select>
                                                 </div>
 
+                                                {{-- UPDATE DEPARTMENT (PERBAIKAN DISINI) --}}
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-bold text-slate-600 uppercase mb-1">Update
+                                                        Department <span
+                                                            class="text-slate-400 font-normal italic">(Opsional)</span></label>
+                                                    <select name="department" x-model="editForm.department"
+                                                        class="w-full border-2 border-slate-300 focus:border-slate-900 focus:ring-0 rounded-sm text-sm font-semibold bg-white">
+                                                        {{-- TAMBAHKAN OPSI KOSONG INI AGAR TIDAK OTOMATIS KE LOW VOLTAGE --}}
+                                                        <option value="">-- Tidak Berubah --</option>
+
+                                                        <option value="Low Voltage">Low Voltage</option>
+                                                        <option value="Medium Voltage">Medium Voltage</option>
+                                                        <option value="IT">IT</option>
+                                                        <option value="FH">FH</option>
+                                                        <option value="PE">PE</option>
+                                                        <option value="MT">MT</option>
+                                                        <option value="GA">GA</option>
+                                                        <option value="FO">FO</option>
+                                                        <option value="SS">SS</option>
+                                                        <option value="SC">SC</option>
+                                                        <option value="RM">RM</option>
+                                                        <option value="QR">QR</option>
+                                                        <option value="FA">FA</option>
+                                                        <option value="HC">HC</option>
+                                                        <option value="Sales">Sales</option>
+                                                        <option value="Marketing">Marketing</option>
+                                                    </select>
+                                                </div>
+
+                                                <div x-show="editForm.status == 'completed'" x-transition>
+                                                    <label
+                                                        class="block text-xs font-bold text-emerald-700 uppercase mb-1">Foto
+                                                        Bukti Penyelesaian <span
+                                                            class="text-slate-400 italic normal-case">(Opsional)</span></label>
+                                                    <input type="file" name="completion_photo"
+                                                        class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-xs file:font-bold file:uppercase file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer border border-emerald-200 bg-white rounded-sm">
+                                                </div>
                                                 <div x-show="editForm.status == 'in_progress'">
                                                     <label
                                                         class="block text-xs font-bold text-blue-700 uppercase mb-1">Revisi
@@ -1047,20 +1206,15 @@
                                                         class="w-full border-2 border-blue-200 focus:border-blue-500 focus:ring-0 rounded-sm date-picker text-sm"
                                                         placeholder="Update Tanggal..." x-init="flatpickr($el, { dateFormat: 'Y-m-d', minDate: 'today' })">
                                                 </div>
-
                                                 <div class="pt-2 flex flex-row-reverse gap-2">
                                                     <button type="submit"
-                                                        class="inline-flex justify-center rounded-sm bg-yellow-400 px-5 py-2 text-slate-900 font-black uppercase tracking-wider hover:bg-yellow-300 shadow-sm transition">
-                                                        Simpan Update
-                                                    </button>
+                                                        class="inline-flex justify-center rounded-sm bg-yellow-400 px-5 py-2 text-slate-900 font-black uppercase tracking-wider hover:bg-yellow-300 shadow-sm transition">Simpan
+                                                        Update</button>
                                                     <button type="button" @click="showEditModal = false"
-                                                        class="inline-flex justify-center rounded-sm border-2 border-slate-300 bg-white px-4 py-2 text-slate-600 font-bold uppercase tracking-wide hover:bg-slate-50 transition">
-                                                        Batal
-                                                    </button>
+                                                        class="inline-flex justify-center rounded-sm border-2 border-slate-300 bg-white px-4 py-2 text-slate-600 font-bold uppercase tracking-wide hover:bg-slate-50 transition">Batal</button>
                                                 </div>
                                             </div>
                                         </template>
-
                                     </div>
                                 </form>
                             </div>
@@ -1069,6 +1223,7 @@
                 </template>
             </div>
 
+            {{-- SCRIPT DATE RANGE DAN ALERT --}}
             @if (session('success'))
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
@@ -1120,10 +1275,9 @@
             <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
             <script>
-                // Tunggu sampai halaman selesai loading
                 document.addEventListener("DOMContentLoaded", function() {
 
-                    // Cek apakah elemennya ada?
+
                     const pickerInput = document.getElementById("date_range_picker");
 
                     if (pickerInput) {
@@ -1132,14 +1286,14 @@
                             dateFormat: "Y-m-d",
                             altInput: true,
                             altFormat: "j F Y",
-                            // Ambil default date dari hidden input jika ada
+
                             defaultDate: [
                                 "{{ request('start_date') }}",
                                 "{{ request('end_date') }}"
                             ],
                             onChange: function(selectedDates, dateStr, instance) {
                                 if (selectedDates.length === 2) {
-                                    // Format ke YYYY-MM-DD manual agar zona waktu aman
+
                                     const offset = selectedDates[0].getTimezoneOffset();
                                     const startDate = new Date(selectedDates[0].getTime() - (offset * 60 *
                                         1000)).toISOString().split('T')[0];

@@ -169,7 +169,7 @@
                             'color' => 'from-emerald-500 to-green-400',
                             'shadow' => 'shadow-emerald-500/20',
                             'bg_hover' => 'group-hover:text-emerald-600',
-                            'btn_link' => '#',
+                            'btn_link' => route('fh.index'),
                         ],
                     ];
                 @endphp

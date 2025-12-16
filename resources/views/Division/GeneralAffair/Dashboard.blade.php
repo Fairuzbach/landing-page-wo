@@ -134,6 +134,74 @@
 
             {{-- Grid Grafik --}}
             {{-- GRID GRAFIK (INDUSTRIAL STYLE) --}}
+            <div class="bg-white p-6 rounded-sm shadow-md border-t-4 border-yellow-400 mb-6">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-lg font-black text-slate-900 uppercase tracking-wider">
+                            Pencapaian Bulanan
+                        </h3>
+                        <p class="text-xs text-slate-500 font-bold mt-1">
+                            Berdasarkan Target Penyelesaian Tiket
+                        </p>
+                    </div>
+
+                    {{-- FILTER KHUSUS BULAN --}}
+                    <form action="{{ route('ga.dashboard') }}" method="GET" class="flex items-center gap-2">
+                        {{-- Keep other filters if exist (optional, agar tidak reset filter lain) --}}
+                        @if (request('start_date'))
+                            <input type="hidden" name="start_date" value="{{ request('start_date') }}">
+                        @endif
+                        @if (request('end_date'))
+                            <input type="hidden" name="end_date" value="{{ request('end_date') }}">
+                        @endif
+
+                        <label for="filter_month" class="text-xs font-bold text-slate-600 uppercase">Pilih
+                            Bulan:</label>
+                        <input type="month" name="filter_month" id="filter_month" value="{{ $filterMonth }}"
+                            onchange="this.form.submit()"
+                            class="border-2 border-slate-200 rounded-sm text-sm font-bold text-slate-800 focus:border-yellow-400 focus:ring-0 py-1">
+                    </form>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-center gap-8">
+                    {{-- KANVAS CHART DOUGHNUT --}}
+                    <div class="relative w-48 h-48">
+                        <canvas id="performanceChart"></canvas>
+                        {{-- Teks Persentase di Tengah --}}
+                        <div class="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                            <span class="text-3xl font-black text-slate-900">{{ $perfPercentage }}%</span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase">Selesai</span>
+                        </div>
+                    </div>
+
+                    {{-- KETERANGAN TEKS --}}
+                    <div class="flex-1 w-full">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-50 p-4 rounded-sm border-l-4 border-slate-300">
+                                <p class="text-xs font-bold text-slate-500 uppercase">Total Target</p>
+                                <p class="text-2xl font-black text-slate-800">{{ $perfTotal }} <span
+                                        class="text-sm font-normal text-slate-400">Tiket</span></p>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-sm border-l-4 border-green-500">
+                                <p class="text-xs font-bold text-green-600 uppercase">Terealisasi</p>
+                                <p class="text-2xl font-black text-green-700">{{ $perfCompleted }} <span
+                                        class="text-sm font-normal text-green-500">Tiket</span></p>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            {{-- Progress Bar Visual --}}
+                            <div class="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
+                                <div class="bg-gradient-to-r from-yellow-400 to-yellow-600 h-4 rounded-full transition-all duration-1000 ease-out"
+                                    style="width: {{ $perfPercentage }}%"></div>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2 font-medium italic text-right">
+                                *Menghitung tiket dengan target selesai bulan
+                                {{ Carbon\Carbon::parse($filterMonth)->translatedFormat('F Y') }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
                 {{-- 1. Lokasi --}}
@@ -257,6 +325,46 @@
                 $startDateFilename = $minDate ? $minDate->format('Y-m-d') : date('Y-m-d');
                 $startDateHeader = $minDate ? $minDate->translatedFormat('d F Y') : date('d F Y');
             @endphp
+            <script>
+                // --- CHART BARU: PERFORMANCE CHART ---
+                const ctxPerf = document.getElementById('performanceChart');
+                if (ctxPerf) {
+                    const perfPercentage = {{ $perfPercentage }};
+                    const remaining = 100 - perfPercentage;
+
+                    new Chart(ctxPerf, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Selesai', 'Belum Selesai'],
+                            datasets: [{
+                                data: [perfPercentage, remaining],
+                                backgroundColor: [
+                                    '#FACC15', // Kuning (Selesai)
+                                    '#E2E8F0' // Abu-abu (Sisa)
+                                ],
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            cutout: '75%', // Membuat lubang tengah lebih besar
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.label + ': ' + context.raw + '%';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            </script>
             <script>
                 document.addEventListener('DOMContentLoaded', function() {
 
@@ -393,7 +501,6 @@
                         });
                     }
 
-                    // 5. GANTT CHART
                     // 5. GANTT CHART
                     const ctxGantt = document.getElementById('ganttChart');
                     if (ctxGantt) {
@@ -537,30 +644,61 @@
                     } = window.jspdf;
                     const element = document.getElementById('dashboard-content');
 
-                    // 1. AMBIL TANGGAL DARI PHP & JS
-                    const startDate = "{{ $startDateFilename }}"; // Dari data database
+                    // --- 1. AMBIL NILAI DARI INPUT FILTER ---
+                    const filterStart = document.getElementById('start_date').value;
+                    const filterEnd = document.getElementById('end_date').value;
 
-                    const dateObj = new Date();
+                    // --- 2. TENTUKAN START DATE ---
+                    // Jika user memfilter, pakai input user. Jika tidak, pakai default dari DB.
+                    let startDateVal = "{{ $startDateFilename }}"; // Default
+                    if (filterStart) {
+                        startDateVal = filterStart; // Format input: YYYY-MM-DD
+                    }
+
+                    // --- 3. TENTUKAN END DATE ---
+                    let endDateFilename, endDateHeader;
+
+                    let dateObj;
+
+                    if (filterEnd) {
+                        // A. JIKA ADA FILTER: Pakai tanggal dari input
+                        dateObj = new Date(filterEnd);
+                    } else {
+                        // B. JIKA TIDAK ADA FILTER: Pakai Hari Ini
+                        dateObj = new Date();
+                    }
+
+                    // --- FORMAT TANGGAL UNTUK FILE & HEADER ---
                     const year = dateObj.getFullYear();
                     const day = String(dateObj.getDate()).padStart(2, '0');
-
-                    // --- UBAH DISINI: AMBIL NAMA BULAN (INDONESIA) ---
                     const monthName = dateObj.toLocaleString('id-ID', {
                         month: 'long'
-                    }); // Contoh: "Desember"
+                    }); // "Desember"
 
-                    // Format End Date untuk Filename (misal: 15-Desember-2023)
-                    const endDate = `${day}-${monthName}-${year}`;
+                    // Hasil: 15-Desember-2023
+                    endDateFilename = `${day}-${monthName}-${year}`;
 
-                    // Format Tanggal untuk Header Teks (misal: 15 Desember 2023)
-                    const endDateDisplay = `${day} ${monthName} ${year}`;
+                    // Hasil: 15 Desember 2023
+                    endDateHeader = `${day} ${monthName} ${year}`;
 
-                    // Nama File: Laporan-GA-[Mulai]_sd_15-Desember-2023.pdf
-                    const fileName = `Laporan-GA-${startDate}_sd_${endDate}.pdf`;
+                    // --- 4. FORMAT ULANG START DATE UNTUK HEADER (OPSIONAL) ---
+                    // Agar header terlihat rapi (misal: 01 Desember 2023 s/d ...), kita format ulang startDateVal
+                    let startDateHeader = "{{ $startDateHeader }}"; // Default PHP
+                    if (filterStart) {
+                        const sDate = new Date(filterStart);
+                        const sDay = String(sDate.getDate()).padStart(2, '0');
+                        const sMonth = sDate.toLocaleString('id-ID', {
+                            month: 'long'
+                        });
+                        const sYear = sDate.getFullYear();
+                        startDateHeader = `${sDay} ${sMonth} ${sYear}`;
+                    }
 
-                    // String Header PDF
-                    const headerText = `Periode Data: {{ $startDateHeader }} s/d ${endDateDisplay}`;
+                    // --- 5. SETUP FINAL ---
+                    const fileName = `Laporan-GA-${startDateVal}_sd_${endDateFilename}.pdf`;
+                    const headerText = `Periode Data: ${startDateHeader} s/d ${endDateHeader}`;
 
+                    // --- VALIDASI SWEETALERT ---
                     if (typeof Swal === 'undefined') {
                         alert('Library SweetAlert belum dimuat.');
                         return;
@@ -568,7 +706,8 @@
 
                     Swal.fire({
                         title: 'Memproses PDF...',
-                        text: 'Menyiapkan rentang tanggal: ' + startDate + ' s/d ' + endDate,
+                        // Tampilkan tanggal yang BENAR di loading screen
+                        text: `Menyiapkan rentang: ${startDateVal} s/d ${endDateFilename}`,
                         allowOutsideClick: false,
                         didOpen: () => {
                             Swal.showLoading()
@@ -580,7 +719,7 @@
                         useCORS: true,
                         logging: false,
                         backgroundColor: '#f8fafc',
-                        ignoreElements: (el) => el.tagName === 'BUTTON' // Sembunyikan tombol saat print
+                        ignoreElements: (el) => el.tagName === 'BUTTON'
                     }).then(canvas => {
                         const imgData = canvas.toDataURL('image/png');
                         const pdf = new jsPDF('p', 'mm', 'a4');
@@ -588,15 +727,16 @@
                         const pageHeight = 297;
                         const imgHeight = canvas.height * imgWidth / canvas.width;
                         let heightLeft = imgHeight;
-                        let position = 15; // Beri jarak atas 15mm untuk Header Teks
+                        let position = 15;
 
-                        // --- TAMBAHKAN HEADER TEKS ---
+                        // --- HEADER PDF ---
                         pdf.setFontSize(10);
-                        pdf.text("Laporan Dashboard General Affair", 10, 8); // Judul Kiri
+                        pdf.text("Laporan Dashboard General Affair", 10, 8);
                         pdf.setFontSize(9);
                         pdf.setTextColor(100);
-                        pdf.text(headerText, 10, 13); // Tanggal di bawah judul
-                        // -----------------------------
+                        // Gunakan headerText yang sudah dinamis
+                        pdf.text(headerText, 10, 13);
+                        // ------------------
 
                         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
                         heightLeft -= pageHeight;

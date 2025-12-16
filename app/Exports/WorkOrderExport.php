@@ -4,19 +4,22 @@ namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping; // Tambahan untuk format data
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+
 use Carbon\Carbon;
 
 class WorkOrderExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithStyles
 {
     protected $data;
 
-    // 1. TERIMA DATA DARI CONTROLLER (CONSTRUCTOR)
+
     public function __construct($data)
     {
         $this->data = $data;
@@ -39,13 +42,14 @@ class WorkOrderExport implements FromCollection, WithHeadings, WithMapping, Shou
             'PARAMETER',
             'STATUS',
             'STATUS PERMINTAAN',
+            'BOBOT PEKERJAAN',
             'TANGGAL DIBUAT',
             'TANGGAL TARGET',
             'TANGGAL SELESAI',
         ];
     }
 
-    // 3. FORMAT DATA (MAPPING) - Logic formatting dipindah kesini
+
     public function map($ticket): array
     {
         // Handle User
@@ -67,13 +71,39 @@ class WorkOrderExport implements FromCollection, WithHeadings, WithMapping, Shou
             $ticket->parameter_permintaan ?? $ticket->category,
             strtoupper(str_replace('_', ' ', $ticket->status)), // Status Uppercase
             $ticket->status_permintaan,
+            $ticket->category,
             $tglDibuat,
             $tglTarget,
             $tglSelesai,
         ];
     }
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
 
-    // 4. STYLING (WARNA KUNING & BORDER)
+                // 1. Ambil Objek Worksheet Asli
+                $sheet = $event->sheet->getDelegate();
+
+                // 2. Cari Huruf Kolom Terakhir (Misal: 'K')
+                $lastColumn = $sheet->getHighestColumn();
+
+                // 3. Cari Nomor Baris Terakhir (Misal: 50)
+                $lastRow = $sheet->getHighestRow();
+
+                // 4. Buat String Range (Misal: "A1:K50")
+                // Penting: Pastikan range mencakup Header (A1) sampai data terakhir
+                $fullRange = 'A1:' . $lastColumn . $lastRow;
+
+                // 5. Terapkan AutoFilter pada Range tersebut
+                $sheet->setAutoFilter($fullRange);
+
+                // Opsional: Freeze Pane (Bekukan Baris Header agar tetap terlihat saat scroll)
+                $sheet->freezePane('A2');
+            },
+        ];
+    }
+
     public function styles(Worksheet $sheet)
     {
         $lastRow = $sheet->getHighestRow();
@@ -84,14 +114,14 @@ class WorkOrderExport implements FromCollection, WithHeadings, WithMapping, Shou
                 'font' => ['bold' => true, 'color' => ['argb' => '000000']], // Teks Hitam Bold
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['argb' => 'FFFF00'], // Background Kuning Caterpillar
+                    'startColor' => ['argb' => 'FFFF00'], // Background Kuning 
                 ],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
                 ],
             ],
 
-            // Style Seluruh Tabel (Border Tipis)
+
             'A1:K' . $lastRow => [
                 'borders' => [
                     'allBorders' => [

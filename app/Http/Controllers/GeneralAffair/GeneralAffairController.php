@@ -47,6 +47,9 @@ class GeneralAffairController extends Controller
         if ($request->filled('category')) {
             $query->where('category', $request->category);
         }
+        if ($request->filled('parameter')) {
+            $query->where('parameter_permintaan', $request->parameter);
+        }
 
         // Filter Tanggal
         if ($request->filled('start_date')) {
@@ -65,7 +68,7 @@ class GeneralAffairController extends Controller
         $query = $this->buildQuery($request);
         $workOrders = $query->with(['user', 'histories.user'])->paginate(10)->withQueryString();
         $pageIds = $workOrders->pluck('id')->toArray();
-        $plants = Plant::all();
+        $plants = Plant::whereNotIn('name', ['QC', 'GA', 'FO', 'PE', 'QR', 'SS', 'MT', 'FH'])->get();
 
         // Counter Sederhana untuk Index
         $user = Auth::user();
@@ -161,6 +164,32 @@ class GeneralAffairController extends Controller
             $bobotData['SEDANG'] ?? 0,
             $bobotData['RINGAN'] ?? 0
         ];
+        // 1. Ambil Bulan Filter (Default: Bulan Ini)
+        $filterMonth = $request->input('filter_month', date('Y-m')); // Format YYYY-MM
+        $year = substr($filterMonth, 0, 4);
+        $month = substr($filterMonth, 5, 2);
+
+        // 2. Query Khusus Persentase
+        // Logika: Ambil tiket yang TARGET-nya di bulan ini. 
+        // Jika target kosong, ambil yang DIBUAT di bulan ini.
+        $perfQuery = WorkOrderGeneralAffair::where('status', '!=', 'cancelled')
+            ->where(function ($q) use ($year, $month) {
+                // Kondisi A: Punya Target Date di bulan terpilih
+                $q->whereYear('target_completion_date', $year)
+                    ->whereMonth('target_completion_date', $month)
+                    // Kondisi B: Target NULL, tapi Created At di bulan terpilih
+                    ->orWhere(function ($sub) use ($year, $month) {
+                        $sub->whereNull('target_completion_date')
+                            ->whereYear('created_at', $year)
+                            ->whereMonth('created_at', $month);
+                    });
+            });
+
+        $perfTotal = $perfQuery->count();
+        $perfCompleted = (clone $perfQuery)->where('status', 'completed')->count();
+
+        // Hitung Persentase (Hindari division by zero)
+        $perfPercentage = $perfTotal > 0 ? round(($perfCompleted / $perfTotal) * 100) : 0;
 
         // Chart 5: GANTT CHART
         $ganttLabels = [];
@@ -229,14 +258,18 @@ class GeneralAffairController extends Controller
             'ganttData',
             'ganttColors',
             'ganttRawData',
-            'workOrders'
+            'workOrders',
+            'perfTotal',
+            'perfCompleted',
+            'perfPercentage',
+            'filterMonth'
         ));
     }
 
     // --- 4. FORM CREATE ---
     public function create()
     {
-        $plants = Plant::all();
+        $plants = Plant::whereNotIn('name', ['QC', 'GA', 'FO', 'PE', 'QR', 'SS', 'MT', 'FH'])->get();
         $workOrders = WorkOrderGeneralAffair::with('user')->latest()->paginate(10);
         return view('general-affair.index', compact('workOrders', 'plants'));
     }
@@ -245,28 +278,42 @@ class GeneralAffairController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            // Validasi Input Nama Baru
+            'manual_requester_name' => 'required|string|max:255',
+
             'plant_id' => 'required',
             'department' => 'required',
             'description' => 'required',
             'category' => 'required',
             'parameter_permintaan' => 'required',
-            'photo' => 'required|image|max:5120'
+            'photo' => 'nullable|image|max:5120'
         ]);
+
         $plantData = Plant::find($request->plant_id);
         $plantName = $plantData ? $plantData->name : 'Unknown Plant';
 
-        $photoPath = $request->file('photo')->store('wo_ga', 'public');
+        $photoPath = null;
+        if ($request->hasFile('photo')) {
+            $photoPath = $request->file('photo')->store('wo_ga', 'public');
+        }
 
+        // Generate Nomor Tiket
         $dateCode = date('Ymd');
         $prefix = 'woGA-' . $dateCode . '-';
         $lastTicket = WorkOrderGeneralAffair::where('ticket_num', 'like', $prefix . '%')->orderBy('id', 'desc')->first();
         $newSequence  = $lastTicket ? ((int) substr($lastTicket->ticket_num, -3) + 1) : 1;
         $ticketNum = $prefix . sprintf('%03d', $newSequence);
 
+        // --- SIMPAN DATA ---
         $ticket = WorkOrderGeneralAffair::create([
             'ticket_num' => $ticketNum,
+
+            // 1. Requester ID tetap ambil dari akun yang login (untuk trace akun mana yang pakai)
             'requester_id' => Auth::id(),
-            'requester_name' => Auth::user()->name,
+
+            // 2. Requester Name DIUBAH: Ambil dari Input Manual
+            'requester_name' => $request->manual_requester_name,
+
             'plant' => $plantName,
             'department' => $request->department,
             'description' => $request->description,
@@ -276,11 +323,13 @@ class GeneralAffairController extends Controller
             'status_permintaan' => $request->status_permintaan,
             'photo_path' => $photoPath,
         ]);
+
         WorkOrderGaHistory::create([
             'work_order_id' => $ticket->id,
             'user_id' => Auth::id(),
             'action' => 'Created',
-            'description' => 'Tiket baru berhasil dibuat.'
+            // Update deskripsi history agar mencatat nama inputan juga
+            'description' => 'Tiket dibuat atas nama: ' . $request->manual_requester_name
         ]);
 
         return redirect()->route('ga.index')->with('success', 'Permintaan berhasil dibuat!');
@@ -296,18 +345,22 @@ class GeneralAffairController extends Controller
         $ticket = WorkOrderGeneralAffair::findOrFail($id);
         $oldStatus = $ticket->status;
 
+        $request->validate([
+            'admin_name' => 'required|string|max:255'
+        ]);
+
         if ($ticket->status == 'pending') {
             if ($request->action == 'decline') {
                 $ticket->status = 'cancelled';
                 $ticket->processed_by = $user->id;
-                $ticket->processed_by_name = $user->name;
+                $ticket->processed_by_name = $request->admin_name;
                 $ticket->save();
 
                 WorkOrderGaHistory::create([
                     'work_order_id' => $ticket->id,
                     'user_id' => $user->id,
                     'action' => 'Declined',
-                    'description' => 'Permintaan ditolak oleh ' . $user->name . '.',
+                    'description' => 'Permintaan ditolak oleh ' . $request->admin_name . '.',
                 ]);
 
                 return redirect()->route('ga.index')->with('error', 'Permintaan telah di tolak.');
@@ -321,7 +374,7 @@ class GeneralAffairController extends Controller
                 $ticket->category = $request->category;
                 $ticket->target_completion_date = $request->target_date;
                 $ticket->processed_by = $user->id;
-                $ticket->processed_by_name = $user->name;
+                $ticket->processed_by_name = $request->admin_name;
                 $ticket->save();
 
                 WorkOrderGaHistory::create([
@@ -334,17 +387,29 @@ class GeneralAffairController extends Controller
             }
         }
 
-        $request->validate(['status' => 'required']);
+        $request->validate([
+            'status' => 'required',
+            'completion_photo' => 'nullable|image|max:5120'
+        ]);
 
         $ticket->status = $request->status;
+
+        if ($request->filled('department')) {
+            $ticket->department = $request->department;
+        }
+
         if ($request->status === 'completed') {
             $ticket->actual_completion_date = now()->toDateString();
+            if ($request->hasFile('completion_photo')) {
+                $photoPath = $request->file('completion_photo')->store('wo_ga_completed', 'public');
+                $ticket->photo_completed_path = $photoPath;
+            }
         } elseif ($request->filled('target_date')) {
             $ticket->target_completion_date = $request->target_date;
         }
 
         $ticket->processed_by = $user->id;
-        $ticket->processed_by_name = $user->name;
+        $ticket->processed_by_name = $request->admin_name;
         $ticket->save();
 
         WorkOrderGaHistory::create([
