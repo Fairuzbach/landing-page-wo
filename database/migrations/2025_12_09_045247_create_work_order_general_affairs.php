@@ -30,7 +30,7 @@ return new class extends Migration
             $table->date('target_completion_date')->nullable();
             $table->dateTime('actual_completion_date')->nullable();
 
-            $table->string('photo_path');
+            $table->string('photo_path')->nullable();
             $table->timestamps();
         });
     }
