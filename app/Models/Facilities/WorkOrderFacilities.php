@@ -23,10 +23,15 @@ class WorkOrderFacilities extends Model
     }
 
     // 2. [INI YANG HILANG] Relasi ke Teknisi
-    public function facilityTech()
+    public function technicians()
     {
         // Parameter ke-2 ('facility_tech_id') harus sesuai nama kolom di database
-        return $this->belongsTo(FacilityTech::class, 'facility_tech_id');
+        return $this->belongsToMany(
+            \App\Models\FacilityTech::class,
+            'facility_tech_work_order', // Nama tabel pivot
+            'work_order_facility_id',   // FK di tabel pivot untuk model ini
+            'facility_tech_id'          // FK di tabel pivot untuk model lawan
+        );
     }
 
     // 3. Relasi ke Mesin
